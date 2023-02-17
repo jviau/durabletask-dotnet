@@ -22,7 +22,7 @@ public record MediatorOrchestratorRequest(string PropA, string PropB) : IOrchest
     public TaskName GetTaskName() => nameof(MediatorOrchestrator2);
 }
 
-public class MediatorOrchestrator2 : TaskOrchestrator<MediatorOrchestratorRequest> // Single generic means it has no output. Only input.
+public class MediatorOrchestrator2 : TaskOrchestrator<MediatorOrchestratorRequest>
 {
     public override async Task RunAsync(TaskOrchestrationContext context, MediatorOrchestratorRequest input)
     {
@@ -52,7 +52,7 @@ public record WriteConsoleActivityRequest(string Value) : IActivityRequest<strin
     public TaskName GetTaskName() => nameof(WriteConsoleActivity2);
 }
 
-public class WriteConsoleActivity2 : TaskActivity<WriteConsoleActivityRequest> // Single generic means it has no output. Only input.
+public class WriteConsoleActivity2 : TaskActivity<WriteConsoleActivityRequest>
 {
     readonly IConsole console;
 

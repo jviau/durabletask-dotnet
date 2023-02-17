@@ -17,7 +17,7 @@ namespace Preview.MediatorPattern.ExistingTypes;
 * how it is created is flexible.
 */
 
-public class MediatorOrchestrator1 : TaskOrchestrator<MyInput> // Single generic means it has no output. Only input.
+public class MediatorOrchestrator1 : TaskOrchestrator<MyInput>
 {
     public static IOrchestrationRequest CreateRequest(string propA, string propB)
         => OrchestrationRequest.Create(nameof(MediatorOrchestrator1), new MyInput(propA, propB));
@@ -46,7 +46,7 @@ public class MediatorSubOrchestrator1 : TaskOrchestrator<string, string>
     }
 }
 
-public class WriteConsoleActivity1 : TaskActivity<string> // Single generic means it has no output. Only input.
+public class WriteConsoleActivity1 : TaskActivity<string>
 {
     readonly IConsole console;
 
