@@ -164,3 +164,28 @@ public abstract class TaskOrchestrator<TInput> : ITaskOrchestrator
     /// <returns>A task that completes when the orchestration is complete.</returns>
     public abstract Task RunAsync(TaskOrchestrationContext context, TInput input);
 }
+
+/// <inheritdoc cref="TaskOrchestrator{Unit, Unit}" />.
+public abstract class TaskOrchestrator : ITaskOrchestrator
+{
+    /// <inheritdoc/>
+    public Type InputType => typeof(Unit);
+
+    /// <inheritdoc/>
+    public Type OutputType => typeof(Unit);
+
+    /// <inheritdoc/>
+    async Task<object?> ITaskOrchestrator.RunAsync(TaskOrchestrationContext context, object? input)
+    {
+        Check.NotNull(context, nameof(context));
+        await this.RunAsync(context);
+        return Unit.Value;
+    }
+
+    /// <summary>
+    /// Override to implement task orchestrator logic.
+    /// </summary>
+    /// <param name="context">The task orchestrator's context.</param>
+    /// <returns>A task that completes when the orchestration is complete.</returns>
+    public abstract Task RunAsync(TaskOrchestrationContext context);
+}
