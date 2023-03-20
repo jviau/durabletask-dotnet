@@ -16,15 +16,13 @@ public class JsonDataConverter : DataConverter
         IncludeFields = true,
     };
 
-    readonly JsonSerializerOptions? options;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="JsonDataConverter"/> class.
     /// </summary>
     /// <param name="options">The serializer options.</param>
     public JsonDataConverter(JsonSerializerOptions? options = null)
     {
-        this.options = options ?? DefaultOptions;
+        this.Options = options ?? DefaultOptions;
     }
 
     /// <summary>
@@ -32,15 +30,20 @@ public class JsonDataConverter : DataConverter
     /// </summary>
     public static JsonDataConverter Default { get; } = new JsonDataConverter();
 
+    /// <summary>
+    /// Gets the JSON serializer options.
+    /// </summary>
+    public JsonSerializerOptions Options { get; }
+
     /// <inheritdoc/>
     public override string? Serialize(object? value)
     {
-        return value != null ? JsonSerializer.Serialize(value, this.options) : null;
+        return value != null ? JsonSerializer.Serialize(value, this.Options) : null;
     }
 
     /// <inheritdoc/>
     public override object? Deserialize(string? data, Type targetType)
     {
-        return data != null ? JsonSerializer.Deserialize(data, targetType, this.options) : null;
+        return data != null ? JsonSerializer.Deserialize(data, targetType, this.Options) : null;
     }
 }

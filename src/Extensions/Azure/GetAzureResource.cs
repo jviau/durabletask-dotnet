@@ -10,26 +10,10 @@ using Microsoft.Extensions.Azure;
 namespace Microsoft.DurableTask.Extensions.Azure;
 
 /// <summary>
-/// Contract representing a <see cref="GetAzureResource{TResourceData}" /> without generic constraint.
-/// </summary>
-public interface IResourceRequest
-{
-    /// <summary>
-    /// Gets the ID of the resource to retrieve.
-    /// </summary>
-    ResourceIdentifier Id { get; }
-
-    /// <summary>
-    /// Gets the name of the <see cref="ArmClient" /> to create via <see cref="IAzureClientFactory{ArmClient}" />.
-    /// </summary>
-    string ClientName { get; }
-}
-
-/// <summary>
 /// An <see cref="IActivityRequest{TResourceData}" /> to get an Azure management resource.
 /// </summary>
 /// <typeparam name="TResourceData">The type of the resource to get.</typeparam>
-public class GetAzureResource<TResourceData> : IResourceRequest, IActivityRequest<TResourceData>
+public class GetAzureResource<TResourceData> : ResourceRequest, IActivityRequest<TResourceData>
     where TResourceData : ResourceData
 {
     /// <summary>
@@ -38,19 +22,39 @@ public class GetAzureResource<TResourceData> : IResourceRequest, IActivityReques
     /// <param name="id">The ID of the resource to get.</param>
     /// <param name="clientName">The name of the client to get.</param>
     public GetAzureResource(ResourceIdentifier id, string? clientName = null)
+        : base(id, clientName)
+    {
+    }
+
+    /// <inheritdoc/>
+    public TaskName GetTaskName() => nameof(GetAzureResourceActivity);
+}
+
+/// <summary>
+/// Internal implementation detail type, do not use directly.
+/// </summary>
+public class ResourceRequest
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ResourceRequest"/> class.
+    /// </summary>
+    /// <param name="id">The ID of the resource to get.</param>
+    /// <param name="clientName">The name of the client to get.</param>
+    public ResourceRequest(ResourceIdentifier id, string? clientName = null)
     {
         this.Id = id;
         this.ClientName = clientName ?? string.Empty;
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Gets the ID of the resource to retrieve.
+    /// </summary>
     public ResourceIdentifier Id { get; }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Gets the name of the <see cref="ArmClient" /> to create via <see cref="IAzureClientFactory{ArmClient}" />.
+    /// </summary>
     public string ClientName { get; }
-
-    /// <inheritdoc/>
-    public TaskName GetTaskName() => nameof(GetAzureResourceActivity);
 }
 
 /// <summary>
@@ -60,7 +64,7 @@ public class GetAzureResource<TResourceData> : IResourceRequest, IActivityReques
 /// This implementation relies on the serialization interoperability between <see cref="GenericResourceData" /> and the
 /// desired resource described in <see cref="GetAzureResource{TResourceData}" />.
 /// </remarks>
-public class GetAzureResourceActivity : TaskActivity<IResourceRequest, GenericResourceData>
+public class GetAzureResourceActivity : TaskActivity<ResourceRequest, GenericResourceData>
 {
     readonly IAzureClientFactory<ArmClient> clientFactory;
 
@@ -74,7 +78,7 @@ public class GetAzureResourceActivity : TaskActivity<IResourceRequest, GenericRe
     }
 
     /// <inheritdoc/>
-    public override async Task<GenericResourceData> RunAsync(TaskActivityContext context, IResourceRequest input)
+    public override async Task<GenericResourceData> RunAsync(TaskActivityContext context, ResourceRequest input)
     {
         Check.NotNull(input);
         ArmClient client = this.clientFactory.CreateClient(input.ClientName);
