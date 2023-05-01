@@ -3,11 +3,11 @@
 
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Microsoft.DurableTask.Tests.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
-using Microsoft.DurableTask.Client;
 
 namespace Microsoft.DurableTask.Grpc.Tests;
 

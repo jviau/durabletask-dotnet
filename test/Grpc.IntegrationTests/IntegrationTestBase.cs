@@ -5,10 +5,10 @@ using System.Diagnostics;
 using Microsoft.DurableTask.Tests.Logging;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Xunit.Abstractions;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.DurableTask.Grpc.Tests;
 
