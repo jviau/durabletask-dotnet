@@ -24,7 +24,6 @@ public class CancelledEventTest : IntegrationTestBase
             b.AddTasks(tasks => tasks.AddOrchestratorFunc(name, this.Orchestrator));
         });
 
-
         string instanceId = await server.Client.ScheduleNewOrchestrationInstanceAsync(name);
         await this.reset.WaitAsync();
         await server.Client.RaiseEventAsync(instanceId, "One");
