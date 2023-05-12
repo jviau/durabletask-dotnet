@@ -51,4 +51,10 @@ public abstract class OrchestrationWorkItem : WorkItem
     /// <param name="cancellation">Cancellation token to abort lock renewal.</param>
     /// <returns>True if lock was renewed, false otherwise.</returns>
     public abstract ValueTask<bool> TryRenewLockAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Signals this orchestration has finished.
+    /// </summary>
+    /// <returns>A task that represents the releasing of this orchestration.</returns>
+    public virtual Task ReleaseAsync() => Task.CompletedTask;
 }

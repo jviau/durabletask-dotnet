@@ -8,40 +8,36 @@ namespace Microsoft.DurableTask.Worker;
 /// <summary>
 /// Runner for <see cref="ActivityWorkItem" />.
 /// </summary>
-class ActivityRunner : IWorkItemRunner<ActivityWorkItem>
+class ActivityRunner : WorkItemRunner<ActivityWorkItem>
 {
-    readonly IDurableTaskFactory factory;
-    readonly DataConverter converter;
     readonly IServiceProvider services;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ActivityRunner"/> class.
     /// </summary>
-    /// <param name="factory">The durable factory.</param>
-    /// <param name="converter">The data converter.</param>
+    /// <param name="options">The options for this runner.</param>
     /// <param name="services">The service provider.</param>
-    public ActivityRunner(IDurableTaskFactory factory, DataConverter converter, IServiceProvider services)
+    public ActivityRunner(WorkItemRunnerOptions options, IServiceProvider services)
+        : base(options)
     {
-        this.factory = Check.NotNull(factory);
-        this.converter = Check.NotNull(converter);
         this.services = Check.NotNull(services);
     }
 
     /// <inheritdoc/>
-    public async ValueTask RunAsync(ActivityWorkItem workItem, CancellationToken cancellation = default)
+    protected override async ValueTask RunAsync(ActivityWorkItem workItem, CancellationToken cancellation = default)
     {
         Check.NotNull(workItem);
         await using AsyncServiceScope scope = this.services.CreateAsyncScope();
-        if (!this.factory.TryCreateActivity(workItem.Name, scope.ServiceProvider, out ITaskActivity? activity))
+        if (!this.Factory.TryCreateActivity(workItem.Name, scope.ServiceProvider, out ITaskActivity? activity))
         {
-            throw new InvalidOperationException($"ITaskActivity with name '{workItem.Name}' does not exist.");
+            throw new InvalidOperationException($"{nameof(ITaskActivity)} with name '{workItem.Name}' does not exist.");
         }
 
-        object? input = this.converter.Deserialize(workItem.Input, activity.InputType);
+        object? input = this.Converter.Deserialize(workItem.Input, activity.InputType);
         try
         {
             object? result = await activity.RunAsync(new Context(workItem), input);
-            await workItem.CompleteAsync(this.converter.Serialize(result));
+            await workItem.CompleteAsync(this.Converter.Serialize(result));
         }
         catch (Exception ex)
         {
@@ -61,6 +57,6 @@ class ActivityRunner : IWorkItemRunner<ActivityWorkItem>
 
         public override TaskName Name => this.workItem.Name;
 
-        public override string InstanceId => this.workItem.Parent.InstanceId;
+        public override string InstanceId => this.workItem.Id;
     }
 }

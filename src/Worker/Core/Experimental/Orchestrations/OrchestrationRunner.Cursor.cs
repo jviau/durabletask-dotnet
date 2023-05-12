@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Threading.Channels;
-using System.Xml;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.DurableTask.Worker;
 
@@ -14,25 +14,32 @@ partial class OrchestrationRunner
     class Cursor
     {
         readonly Dictionary<int, PendingAction> actions = new();
-        readonly OrchestrationWorkItem workItem;
         readonly ITaskOrchestrator orchestrator;
+        readonly DataConverter converter;
+        readonly ILogger logger;
 
+        ExecutionCompleted? pendingCompletion;
+        bool preserveUnprocessedEvents;
         Task<object?>? executionTask;
 
         int sequenceId;
 
-        public Cursor(OrchestrationWorkItem workItem, DataConverter converter, ITaskOrchestrator orchestrator)
+        public Cursor(
+            OrchestrationWorkItem workItem, DataConverter converter, ITaskOrchestrator orchestrator, ILogger logger)
         {
-            this.workItem = workItem;
-            this.Converter = converter;
+            this.WorkItem = workItem;
+            this.converter = converter;
             this.orchestrator = orchestrator;
+            this.logger = logger;
         }
 
-        public DataConverter Converter { get; }
+        public DateTimeOffset CurrentDateTime { get; private set; }
 
-        protected ChannelReader<OrchestrationMessage> Reader => this.workItem.Channel.Reader;
+        public OrchestrationWorkItem WorkItem { get; }
 
-        protected ChannelWriter<OrchestrationMessage> Writer => this.workItem.Channel.Writer;
+        protected ChannelReader<OrchestrationMessage> Reader => this.WorkItem.Channel.Reader;
+
+        protected ChannelWriter<OrchestrationMessage> Writer => this.WorkItem.Channel.Writer;
 
         public int GetNextId() => this.sequenceId++;
 
@@ -42,6 +49,7 @@ partial class OrchestrationRunner
             {
                 while (this.Reader.TryRead(out OrchestrationMessage? message))
                 {
+                    this.logger.LogTrace("Received message of type {MessageType}", message.GetType());
                     this.HandleMessage(message);
                 }
 
@@ -50,73 +58,128 @@ partial class OrchestrationRunner
                     break;
                 }
             }
+
+            await this.WorkItem.ReleaseAsync();
         }
 
-        public ValueTask SendMessage(OrchestrationMessage message)
+        public void SetCustomStatus(object? status)
         {
-            return this.SendMessageCoreAsync(message).AsValueTask();
-        }
-
-        public async Task<T> SendMessageAsync<T>(OrchestrationMessage message)
-        {
-            PendingAction action = await this.SendMessageCoreAsync(message);
-            return await action.GetResultAsync<T>(this.Converter);
-        }
-
-        async ValueTask<PendingAction> SendMessageCoreAsync(OrchestrationMessage message)
-        {
-            Check.NotNull(message);
-            if (message is not IOrchestrationAction)
+            if (!this.WorkItem.IsReplaying)
             {
-                throw new InvalidOperationException("Message is not a valid outbound orchestration action.");
+                this.WorkItem.CustomStatus = this.converter.Serialize(status);
+            }
+        }
+
+        public void ContinueAsNew(object? input, bool preserveUnprocessedEvents)
+        {
+            this.pendingCompletion ??= new ContinueAsNew(
+                this.GetNextId(),
+                DateTimeOffset.UtcNow,
+                this.converter.Serialize(input));
+            this.preserveUnprocessedEvents = preserveUnprocessedEvents;
+        }
+
+        public async Task<T> RunActionAsync<T>(OrchestrationAction action)
+        {
+            PendingAction pending = await this.DispatchActionAsync(action);
+            string? result = await pending.WaitAsync();
+            return this.converter.Deserialize<T>(result)!;
+        }
+
+        public async Task RunActionAsync(OrchestrationAction action)
+        {
+            PendingAction pending = await this.DispatchActionAsync(action);
+            await pending.WaitAsync();
+        }
+
+        async ValueTask<PendingAction> DispatchActionAsync(OrchestrationAction action)
+        {
+            Check.NotNull(action);
+            if (action.Id != (this.sequenceId - 1))
+            {
+                // TODO: this may be problematic. It means the TaskOrchestrationContext MUST call RunActionAsync for
+                // every GetNextId call.
+                throw new InvalidOperationException("Unexpected action ID");
             }
 
-            if (this.actions.ContainsKey(message.Id))
-            {
-                throw new InvalidOperationException("Duplicate action ID");
-            }
+            PendingAction pending = new(action);
+            this.actions[action.Id] = pending;
 
-            PendingAction action = new(message);
-            this.actions[message.Id] = action;
-
-            if (!this.workItem.IsReplaying)
+            if (!this.WorkItem.IsReplaying)
             {
                 // TODO: cancellation?.
-                await this.Writer.WriteAsync(message);
+                await this.Writer.WriteAsync(action.ToMessage(this.converter));
             }
 
-            return action;
+            return pending;
         }
 
         void HandleMessage(OrchestrationMessage message)
         {
+            if (message.Timestamp > this.CurrentDateTime)
+            {
+                // We track current time based on the progression of incoming message timestamps.
+                this.CurrentDateTime = message.Timestamp;
+            }
+
             switch (message)
             {
-                case ExecutionStarted m: this.ExecutionStarted(m); break;
-                case WorkScheduledMessage m: this.WorkScheduled(m); break;
-                case WorkCompletedMessage m: this.WorkCompleted(m); break;
-                default: throw new InvalidOperationException($"Unknown or invalid message {message?.GetType()}");
+                case ExecutionStarted m: this.OnExecutionStarted(m); break;
+                case ExecutionTerminated m: this.OnExecutionTerminated(m); break;
+                case WorkScheduledMessage m: this.OnOutboundWork(m); break;
+                case WorkCompletedMessage m: this.OnWorkCompleted(m); break;
+                case EventSent m: this.OnOutboundWork(m); break;
+                case TimerScheduled m: this.OnOutboundWork(m); break;
+                case TimerFired m: this.OnTimerFired(m); break;
+                case OrchestratorStarted: break; // no-op
+                default:
+                    this.logger.LogTrace(
+                        "Orchestration message of type {MessageType} was unhandled", message?.GetType());
+                    break;
             }
         }
 
-        void ExecutionStarted(ExecutionStarted message)
+        void OnExecutionStarted(ExecutionStarted message)
         {
-            TaskOrchestrationContext context = new Context(this.workItem, this);
-            object? input = this.Converter.Deserialize(message.Input, this.orchestrator.InputType);
+            TaskOrchestrationContext context = new Context(this);
+            object? input = this.converter.Deserialize(message.Input, this.orchestrator.InputType);
             this.executionTask = this.orchestrator.RunAsync(context, input);
         }
 
-        void WorkScheduled(WorkScheduledMessage message)
+        void OnExecutionTerminated(ExecutionTerminated message)
+        {
+            // Termination takes precedence over any ContinueAsNew calls.
+            this.pendingCompletion = message with { Id = this.GetNextId() };
+            this.preserveUnprocessedEvents = false;
+        }
+
+        void OnOutboundWork(OrchestrationMessage message)
         {
             if (!this.actions.TryGetValue(message.Id, out PendingAction action))
             {
                 throw new InvalidOperationException("Non deterministic");
             }
 
-            action.Validate(message);
+            action.Consume(message);
+            if (action.FireAndForget)
+            {
+                this.actions.Remove(message.Id);
+            }
         }
 
-        void WorkCompleted(WorkCompletedMessage message)
+        void OnTimerFired(TimerFired message)
+        {
+            if (!this.actions.TryGetValue(message.ScheduledId, out PendingAction action))
+            {
+                // duplicate?
+                return;
+            }
+
+            action.Succeed(null);
+            this.actions.Remove(message.ScheduledId);
+        }
+
+        void OnWorkCompleted(WorkCompletedMessage message)
         {
             if (!this.actions.TryGetValue(message.ScheduledId, out PendingAction action))
             {
@@ -136,39 +199,73 @@ partial class OrchestrationRunner
             this.actions.Remove(message.ScheduledId);
         }
 
+        void OnEventReceived(EventReceived message)
+        {
+            if (this.preserveUnprocessedEvents && this.pendingCompletion is ContinueAsNew continueAsNew)
+            {
+                continueAsNew.CarryOverMessages.Add(message);
+                return;
+            }
+
+
+        }
+
         async ValueTask<bool> CheckForCompletionAsync()
         {
-            if (!(this.executionTask?.IsCompleted ?? false))
+            // Completion priority:
+            // 1. ContinueAsNew
+            // 2. Completed executionTask
+            // 3. All others (eg. termination)
+            if (this.pendingCompletion is ContinueAsNew continueAsNew)
             {
-                return false;
+                // 1. ContinueAsNew - highest priority.
+                await this.Writer.WriteAsync(continueAsNew);
+                this.Writer.Complete();
+                return true;
             }
 
-            ExecutionCompleted? completed;
-            if (this.executionTask.TryGetException(out Exception? ex))
+            if (this.executionTask?.IsCompleted ?? false)
             {
-                if (ex is AbortWorkItemException)
+                // 2. Completed executionTask
+                ExecutionCompleted? completed;
+                if (this.executionTask.TryGetException(out Exception? ex))
                 {
-                    this.Writer.Complete(ex);
-                    return true;
+                    if (ex is AbortWorkItemException)
+                    {
+                        this.Writer.Complete(ex);
+                        return true;
+                    }
+
+                    completed = new ExecutionCompleted(
+                        this.GetNextId(),
+                        DateTimeOffset.UtcNow,
+                        null,
+                        TaskFailureDetails.FromException(ex));
+                }
+                else
+                {
+                    object? result = this.executionTask.GetResultAssumesCompleted();
+                    completed = new ExecutionCompleted(
+                        this.GetNextId(),
+                        DateTimeOffset.UtcNow,
+                        this.converter.Serialize(result),
+                        null);
                 }
 
-                completed = new ExecutionCompleted(
-                    this.GetNextId(),
-                    null,
-                    TaskFailureDetails.FromException(ex));
-            }
-            else
-            {
-                object? result = this.executionTask.GetResultAssumesCompleted();
-                completed = new ExecutionCompleted(
-                    this.GetNextId(),
-                    this.Converter.Serialize(result),
-                    null);
+                await this.Writer.WriteAsync(completed);
+                this.Writer.Complete();
+                return true;
             }
 
-            await this.Writer.WriteAsync(completed);
-            this.Writer.Complete();
-            return true;
+            if (this.pendingCompletion is { } pending)
+            {
+                // 3. All others.
+                await this.Writer.WriteAsync(pending);
+                this.Writer.Complete();
+                return true;
+            }
+
+            return false;
         }
     }
 }

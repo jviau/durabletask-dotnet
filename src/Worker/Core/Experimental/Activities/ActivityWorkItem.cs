@@ -19,14 +19,9 @@ public abstract class ActivityWorkItem : WorkItem
     }
 
     /// <summary>
-    /// Gets the parent orchestration instance details.
-    /// </summary>
-    public abstract ParentOrchestrationInstance Parent { get; init; }
-
-    /// <summary>
     /// Gets the input for this work item.
     /// </summary>
-    public string? Input { get; }
+    public abstract string? Input { get; }
 
     /// <summary>
     /// Completes this work item.

@@ -12,30 +12,39 @@ partial class OrchestrationRunner
 {
     class PendingAction
     {
-        TaskCompletionSource<string?>? tcs;
-        bool initialized;
+        static readonly TaskCompletionSource<string?> CompletedSource = new();
 
-        public PendingAction(OrchestrationMessage message)
+        readonly OrchestrationAction action;
+        TaskCompletionSource<string?>? tcs;
+        bool consumed;
+
+        public PendingAction(OrchestrationAction action)
         {
-            this.Message = Check.NotNull(message);
+            this.action = Check.NotNull(action);
+            if (action.FireAndForget)
+            {
+                CompletedSource.TrySetResult(null);
+                this.tcs = CompletedSource;
+            }
         }
 
-        public OrchestrationMessage Message { get; }
+        public bool FireAndForget => this.action.FireAndForget;
 
-        public void Validate(OrchestrationMessage incoming)
+        public void Consume(OrchestrationMessage incoming)
         {
             Check.NotNull(incoming);
-            if (this.initialized)
+            if (this.consumed)
             {
-                throw new InvalidOperationException("Already initialized");
+                throw new InvalidOperationException(
+                    "This pending action has already been consumed by another incoming message.");
             }
 
-            if (incoming != this.Message)
+            if (!this.action.Matches(incoming))
             {
                 throw new InvalidOperationException("Non-deterministic");
             }
 
-            this.initialized = true;
+            this.consumed = true;
         }
 
         public void Succeed(string? result)
@@ -50,13 +59,14 @@ partial class OrchestrationRunner
             this.tcs.TrySetException(new InvalidOperationException()); // TODO: fill out exception.
         }
 
-        public async Task<T> GetResultAsync<T>(DataConverter converter)
+        /// <summary>
+        /// Waits for this pending action to complete.
+        /// </summary>
+        /// <returns>The result of the action, if any.</returns>
+        public Task<string?> WaitAsync()
         {
             this.EnsureInitialized();
-            string? result = await this.tcs.Task;
-
-            // orchestrator authors ultimately decide null handling.
-            return converter.Deserialize<T>(result)!;
+            return this.tcs.Task;
         }
 
         [MemberNotNull("tcs")]

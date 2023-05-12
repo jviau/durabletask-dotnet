@@ -67,7 +67,7 @@ public class IntegrationTestBase : IClassFixture<GrpcSidecarFixture>, IDisposabl
             {
                 services.AddDurableTaskWorker(b =>
                 {
-                    b.UseGrpc(this.sidecarFixture.Channel);
+                    b.UseGrpcChannel(this.sidecarFixture.Channel);
                     configure(b);
                 });
 

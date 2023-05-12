@@ -129,4 +129,28 @@ static class Check
             throw new ArgumentException(message, name);
         }
     }
+
+    /// <summary>
+    /// Checks if the supplied type is an interface.
+    /// Throws <see cref="ArgumentException" /> if the conditions are not met.
+    /// </summary>
+    /// <typeparam name="T">The type to check the argument implements.</typeparam>
+    /// <param name="argument">The type to check.</param>
+    /// <param name="name">The name of the argument for the exception message.</param>
+    /// <returns>The casted argument to <typeparamref name="T"/>.</returns>
+    [return: NotNullIfNotNull("argument")]
+    public static T IsType<T>(
+        [NotNull] object? argument, [CallerArgumentExpression("argument")] string? name = default)
+    {
+        NotNull(argument, name);
+
+        if (argument is T t)
+        {
+            return t;
+        }
+
+        throw new ArgumentException(
+            $"Parameter type '{argument.GetType()}' is not of type '{typeof(T)}'.",
+            nameof(argument));
+    }
 }

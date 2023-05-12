@@ -16,6 +16,7 @@ static class Dictionary
     /// <typeparam name="TKey">The key type.</typeparam>
     /// <typeparam name="TValue">The value type.</typeparam>
     public static class ReadOnly<TKey, TValue>
+            where TKey : notnull
     {
         /// <summary>
         /// Gets the empty readonly dictionary.

@@ -249,16 +249,16 @@ sealed partial class GrpcDurableTaskWorker
                 {
                     InstanceId = request.InstanceId,
                     Actions =
-                {
-                    new P.OrchestratorAction
                     {
-                        CompleteOrchestration = new P.CompleteOrchestrationAction
+                        new P.OrchestratorAction
                         {
-                            OrchestrationStatus = P.OrchestrationStatus.Failed,
-                            FailureDetails = failureDetails,
+                            CompleteOrchestration = new P.CompleteOrchestrationAction
+                            {
+                                OrchestrationStatus = P.OrchestrationStatus.Failed,
+                                FailureDetails = failureDetails,
+                            },
                         },
                     },
-                },
                 };
             }
 
