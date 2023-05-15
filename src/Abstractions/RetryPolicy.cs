@@ -1,6 +1,8 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Runtime.ExceptionServices;
+
 namespace Microsoft.DurableTask;
 
 /// <summary>
@@ -127,4 +129,99 @@ public class RetryPolicy
     /// Gets or sets a Func to call on exception to determine if retries should proceed.
     /// </summary>
     public Func<Exception, Task<bool>>? HandleAsync { get; set; }
+
+    /// <summary>
+    /// use this retry policy to invoke an orchestration action.
+    /// </summary>
+    /// <typeparam name="T">The return type.</typeparam>
+    /// <param name="context">The orchestration context.</param>
+    /// <param name="invoker">The call to retry.</param>
+    /// <param name="cancellation">The cancellation token.</param>
+    /// <returns>The result of <paramref name="invoker"/>.</returns>
+    internal async Task<T> InvokeAsync<T>(
+        TaskOrchestrationContext context,
+        Func<CancellationToken, Task<T>> invoker,
+        CancellationToken cancellation = default)
+    {
+        Check.NotNull(context);
+        Check.NotNull(invoker);
+
+        Exception? lastException = null;
+        DateTimeOffset startTime = context.CurrentUtcDateTime;
+        for (int attempt = 0; attempt < this.MaxNumberOfAttempts; attempt++)
+        {
+            try
+            {
+                cancellation.ThrowIfCancellationRequested();
+                return await invoker.Invoke(cancellation);
+            }
+            catch (TaskFailedException ex)
+            {
+                if (ex.FailureDetails.IsCausedBy<TaskMissingException>())
+                {
+                    throw;
+                }
+
+                if (cancellation.IsCancellationRequested || !await this.InvokeHandlerAsync(ex))
+                {
+                    throw;
+                }
+
+                lastException = ex;
+            }
+
+            cancellation.ThrowIfCancellationRequested();
+            TimeSpan next = this.NextDelay(startTime, context.CurrentUtcDateTime, attempt);
+            if (next == TimeSpan.Zero)
+            {
+                break;
+            }
+
+            await context.CreateTimer(next, default);
+        }
+
+        if (lastException is not null)
+        {
+            ExceptionDispatchInfo.Capture(lastException).Throw();
+            throw lastException; // does not get hit.
+        }
+
+        return default!;
+    }
+
+    Task<bool> InvokeHandlerAsync(Exception ex)
+    {
+        return this.HandleAsync?.Invoke(ex) ?? Task.FromResult(true);
+    }
+
+    TimeSpan NextDelay(DateTimeOffset startTime, DateTimeOffset currentTime, int attempt)
+    {
+        static bool IsInfinite(TimeSpan value)
+        {
+            return value == Timeout.InfiniteTimeSpan || value == TimeSpan.MaxValue;
+        }
+
+        DateTimeOffset retryExpiration = IsInfinite(this.RetryTimeout)
+            ? DateTimeOffset.MaxValue
+            : startTime.Add(this.RetryTimeout);
+
+        if (currentTime < retryExpiration)
+        {
+            try
+            {
+                double nextDelayInMilliseconds = this.FirstRetryInterval.TotalMilliseconds *
+                                                 Math.Pow(this.BackoffCoefficient, attempt);
+                return nextDelayInMilliseconds < this.MaxRetryInterval.TotalMilliseconds
+                    ? TimeSpan.FromMilliseconds(nextDelayInMilliseconds)
+                    : this.MaxRetryInterval;
+            }
+            catch
+            {
+                // Swallow exceptions.
+                // TODO: log error.
+            }
+        }
+
+        return TimeSpan.Zero;
+    }
 }

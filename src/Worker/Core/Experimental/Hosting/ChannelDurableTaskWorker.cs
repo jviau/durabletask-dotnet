@@ -44,7 +44,7 @@ public class ChannelDurableTaskWorker : DurableTaskWorker
         {
             while (reader.TryRead(out WorkItem? item))
             {
-                ThreadPool.QueueUserWorkItem(this.ProcessWorkItem, (item, stoppingToken));
+                _ = Task.Factory.StartNew(this.ProcessWorkItemAsync, (item, stoppingToken));
             }
         }
     }
@@ -61,7 +61,7 @@ public class ChannelDurableTaskWorker : DurableTaskWorker
             runner = runner.BaseType;
         }
 
-        throw new NotSupportedException();
+        throw new NotSupportedException(); // TODO: flush out.
     }
 
     void InitializeRunners()
@@ -78,7 +78,7 @@ public class ChannelDurableTaskWorker : DurableTaskWorker
         }
     }
 
-    async void ProcessWorkItem(object state)
+    async Task ProcessWorkItemAsync(object state)
     {
         (WorkItem item, CancellationToken cancellation) = Check.IsType<ValueTuple<WorkItem, CancellationToken>>(state);
         IWorkItemRunner runner = this.GetRunner(item.GetType());
@@ -97,6 +97,6 @@ public class ChannelDurableTaskWorker : DurableTaskWorker
             t = t.BaseType;
         }
 
-        throw new NotSupportedException();
+        throw new NotSupportedException(); // TODO: flush out.
     }
 }

@@ -8,7 +8,7 @@ namespace Microsoft.DurableTask.Worker;
 /// </summary>
 partial class OrchestrationRunner
 {
-    public abstract record OrchestrationAction(int Id)
+    abstract record OrchestrationAction(int Id)
     {
         /// <summary>
         /// Gets a value indicating whether this action is fire and forget. Fire and forget actions will not be tracked
@@ -31,7 +31,10 @@ partial class OrchestrationRunner
         public abstract OrchestrationMessage ToMessage(DataConverter converter);
     }
 
-    public record TimerCreatedAction(int Id, DateTimeOffset FireAt)
+    abstract record ScheduleWorkAction(int Id, TaskName Name, object? Input)
+        : OrchestrationAction(Id);
+
+    record TimerCreatedAction(int Id, DateTimeOffset FireAt)
         : OrchestrationAction(Id)
     {
         /// <inheritdoc/>
@@ -49,7 +52,7 @@ partial class OrchestrationRunner
         }
     }
 
-    public record EventSentAction(int Id, string InstanceId, string Name, object? Input)
+    record EventSentAction(int Id, string InstanceId, string Name, object? Input)
         : OrchestrationAction(Id)
     {
         /// <inheritdoc/>
@@ -72,8 +75,8 @@ partial class OrchestrationRunner
         }
     }
 
-    public record TaskActivityScheduledAction(int Id, TaskName Name, object? Input)
-        : OrchestrationAction(Id)
+    record TaskActivityScheduledAction(int Id, TaskName Name, object? Input)
+        : ScheduleWorkAction(Id, Name, Input)
     {
         /// <inheritdoc/>
         public override bool Matches(OrchestrationMessage message)
@@ -91,9 +94,9 @@ partial class OrchestrationRunner
         }
     }
 
-    public record SubOrchestrationScheduledAction(
+    record SubOrchestrationScheduledAction(
         int Id, TaskName Name, object? Input, SubOrchestrationScheduledOptions? Options)
-        : OrchestrationAction(Id)
+        : ScheduleWorkAction(Id, Name, Input)
     {
         /// <inheritdoc/>
         public override bool Matches(OrchestrationMessage message)

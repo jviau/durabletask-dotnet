@@ -29,6 +29,12 @@ class ConfigureWorkItemRunnerOptions<TOptions> : IConfigureNamedOptions<TOptions
         Check.NotNull(options);
         ChannelDurableTaskWorkerOptions source = this.monitor.Get(name);
         options.DataConverter = source.DataConverter;
+
+        if (options is OrchestrationRunnerOptions o)
+        {
+            // TODO: move this?
+            o.MaximumTimerInterval = source.MaximumTimerInterval;
+        }
     }
 
     /// <inheritdoc/>

@@ -92,11 +92,7 @@ public sealed class TaskFailedException : Exception
             subMessage = coreEx.FailureDetails?.ErrorMessage;
         }
 
-        if (subMessage is null)
-        {
-            subMessage = cause?.Message;
-        }
-
+        subMessage ??= cause?.Message;
         return subMessage is null
             ? $"Task '{taskName}' (#{taskId}) failed with an unhandled exception."
             : $"Task '{taskName}' (#{taskId}) failed with an unhandled exception: {subMessage}";

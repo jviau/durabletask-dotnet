@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -36,13 +37,13 @@ partial class OrchestrationRunner
 
         public override bool IsReplaying => this.cursor.WorkItem.IsReplaying;
 
-        protected override ILoggerFactory LoggerFactory => throw new NotImplementedException();
+        protected override ILoggerFactory LoggerFactory => this.cursor.LoggerFactory;
 
         public override Task<TResult> CallActivityAsync<TResult>(
             TaskName name, object? input = null, TaskOptions? options = null)
         {
-            return this.cursor.RunActionAsync<TResult>(
-                new TaskActivityScheduledAction(this.cursor.GetNextId(), name, input));
+            return this.RunActionAsync<TResult>(
+                new TaskActivityScheduledAction(this.cursor.GetNextId(), name, input), options);
         }
 
         public override Task<TResult> CallSubOrchestratorAsync<TResult>(
@@ -51,7 +52,7 @@ partial class OrchestrationRunner
             string? instanceId = (options as SubOrchestrationOptions)?.InstanceId;
             SubOrchestrationScheduledAction action = new(
                 this.cursor.GetNextId(), orchestratorName, input, new(instanceId));
-            return this.cursor.RunActionAsync<TResult>(action);
+            return this.RunActionAsync<TResult>(action, options);
         }
 
         public override void ContinueAsNew(object? newInput = null, bool preserveUnprocessedEvents = true)
@@ -59,14 +60,34 @@ partial class OrchestrationRunner
             this.cursor.ContinueAsNew(newInput, preserveUnprocessedEvents);
         }
 
-        public override Task CreateTimer(DateTime fireAt, CancellationToken cancellationToken)
+        public override async Task CreateTimer(DateTime fireAt, CancellationToken cancellationToken)
         {
-            return this.cursor.RunActionAsync(new TimerCreatedAction(this.cursor.GetNextId(), fireAt));
+            // Make sure we're always operating in UTC
+            DateTime finalFireAtUtc = fireAt.ToUniversalTime();
+
+            // Longer timers are broken down into smaller timers. For example, if fireAt is 7 days from now
+            // and the max interval is 3 days, there will be two 3-day timers and a single one-day timer.
+            // This is primarily to support backends that don't support infinite timers, like Azure Storage.
+            TimeSpan maximumTimerInterval = this.cursor.Options.MaximumTimerInterval;
+            TimeSpan remainingTime = finalFireAtUtc.Subtract(this.CurrentUtcDateTime);
+            while (remainingTime > maximumTimerInterval && !cancellationToken.IsCancellationRequested)
+            {
+                DateTime nextFireAt = this.CurrentUtcDateTime.Add(maximumTimerInterval);
+                await this.cursor.RunActionAsync(new TimerCreatedAction(this.cursor.GetNextId(), nextFireAt));
+                remainingTime = finalFireAtUtc.Subtract(this.CurrentUtcDateTime);
+            }
+
+            await this.cursor.RunActionAsync(new TimerCreatedAction(this.cursor.GetNextId(), finalFireAtUtc));
         }
 
         public override T GetInput<T>()
         {
-            throw new NotImplementedException();
+            if (this.cursor.Input is null)
+            {
+                return default!;
+            }
+
+            return (T)this.cursor.Input;
         }
 
         public override Guid NewGuid()
@@ -135,7 +156,31 @@ partial class OrchestrationRunner
 
         public override Task<T> WaitForExternalEvent<T>(string eventName, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            return this.cursor.WaitExternalEventAsync<T>(eventName, cancellationToken);
+        }
+
+        Task<T> RunActionAsync<T>(OrchestrationAction action, TaskOptions? options)
+        {
+            static Func<CancellationToken, Task<T>> CreateCallback(Cursor cursor, OrchestrationAction action)
+            {
+                bool first = true;
+                return _ =>
+                {
+                    if (!first)
+                    {
+                        action = action with { Id = cursor.GetNextId() };
+                    }
+
+                    first = false;
+                    return cursor.RunActionAsync<T>(action);
+                };
+            }
+
+            return options switch
+            {
+                { Retry: { } retry } => retry.InvokeAsync(this, CreateCallback(this.cursor, action), default),
+                _ => this.cursor.RunActionAsync<T>(action),
+            };
         }
     }
 }

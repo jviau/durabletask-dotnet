@@ -324,8 +324,7 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
         }
         else
         {
-            // The orchestrator isn't waiting for this event (yet?). Save it in case
-            // the orchestrator wants it later.
+            // The orchestrator isn't waiting for this event (yet?). Save it in case the orchestrator wants it later.
             this.externalEventBuffer.Add(eventName, rawEventPayload);
         }
     }

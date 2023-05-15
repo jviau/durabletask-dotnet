@@ -28,16 +28,21 @@ class ActivityRunner : WorkItemRunner<ActivityWorkItem>
     {
         Check.NotNull(workItem);
         await using AsyncServiceScope scope = this.services.CreateAsyncScope();
-        if (!this.Factory.TryCreateActivity(workItem.Name, scope.ServiceProvider, out ITaskActivity? activity))
-        {
-            throw new InvalidOperationException($"{nameof(ITaskActivity)} with name '{workItem.Name}' does not exist.");
-        }
 
-        object? input = this.Converter.Deserialize(workItem.Input, activity.InputType);
         try
         {
+            if (!this.Factory.TryCreateActivity(workItem.Name, scope.ServiceProvider, out ITaskActivity? activity))
+            {
+                throw new TaskMissingException(workItem.Name, typeof(ITaskActivity));
+            }
+
+            object? input = this.Converter.Deserialize(workItem.Input, activity.InputType);
             object? result = await activity.RunAsync(new Context(workItem), input);
             await workItem.CompleteAsync(this.Converter.Serialize(result));
+        }
+        catch (AbortWorkItemException)
+        {
+            // no op.
         }
         catch (Exception ex)
         {

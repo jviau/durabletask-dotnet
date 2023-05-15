@@ -56,7 +56,20 @@ partial class OrchestrationRunner
         public void Fail(TaskFailureDetails failure)
         {
             this.EnsureInitialized();
-            this.tcs.TrySetException(new InvalidOperationException()); // TODO: fill out exception.
+
+            try
+            {
+                // Generate a stack trace by throwing then catching.
+                throw this.action switch
+                {
+                    ScheduleWorkAction a => new TaskFailedException(a.Name, a.Id, failure),
+                    _ => new TaskFailedException(string.Empty, -1, failure),
+                };
+            }
+            catch (Exception ex)
+            {
+                this.tcs.TrySetException(ex);
+            }
         }
 
         /// <summary>

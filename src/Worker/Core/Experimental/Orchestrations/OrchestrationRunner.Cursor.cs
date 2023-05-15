@@ -15,7 +15,7 @@ partial class OrchestrationRunner
     {
         readonly Dictionary<int, PendingAction> actions = new();
         readonly ITaskOrchestrator orchestrator;
-        readonly DataConverter converter;
+        readonly ExternalEventSource externalEvent;
         readonly ILogger logger;
 
         ExecutionCompleted? pendingCompletion;
@@ -25,21 +25,34 @@ partial class OrchestrationRunner
         int sequenceId;
 
         public Cursor(
-            OrchestrationWorkItem workItem, DataConverter converter, ITaskOrchestrator orchestrator, ILogger logger)
+            OrchestrationWorkItem workItem,
+            OrchestrationRunnerOptions options,
+            ITaskOrchestrator orchestrator,
+            ILoggerFactory loggerFactory)
         {
             this.WorkItem = workItem;
-            this.converter = converter;
+            this.Options = options;
+            this.LoggerFactory = loggerFactory;
             this.orchestrator = orchestrator;
-            this.logger = logger;
+            this.logger = loggerFactory.CreateLogger<OrchestrationRunner>();
+            this.externalEvent = new(options.DataConverter);
         }
 
         public DateTimeOffset CurrentDateTime { get; private set; }
 
         public OrchestrationWorkItem WorkItem { get; }
 
-        protected ChannelReader<OrchestrationMessage> Reader => this.WorkItem.Channel.Reader;
+        public OrchestrationRunnerOptions Options { get; }
 
-        protected ChannelWriter<OrchestrationMessage> Writer => this.WorkItem.Channel.Writer;
+        public DataConverter Converter => this.Options.DataConverter;
+
+        public ILoggerFactory LoggerFactory { get; }
+
+        public object? Input { get; private set; }
+
+        ChannelReader<OrchestrationMessage> Reader => this.WorkItem.Channel.Reader;
+
+        ChannelWriter<OrchestrationMessage> Writer => this.WorkItem.Channel.Writer;
 
         public int GetNextId() => this.sequenceId++;
 
@@ -66,24 +79,43 @@ partial class OrchestrationRunner
         {
             if (!this.WorkItem.IsReplaying)
             {
-                this.WorkItem.CustomStatus = this.converter.Serialize(status);
+                this.WorkItem.CustomStatus = this.Converter.Serialize(status);
             }
         }
 
         public void ContinueAsNew(object? input, bool preserveUnprocessedEvents)
         {
-            this.pendingCompletion ??= new ContinueAsNew(
+            if (this.pendingCompletion is not null)
+            {
+                return;
+            }
+
+            ContinueAsNew completion = new(
                 this.GetNextId(),
                 DateTimeOffset.UtcNow,
-                this.converter.Serialize(input));
+                this.Converter.Serialize(input));
+            this.pendingCompletion = completion;
             this.preserveUnprocessedEvents = preserveUnprocessedEvents;
+
+            if (preserveUnprocessedEvents)
+            {
+                foreach (EventReceived message in this.externalEvent.DrainBuffer())
+                {
+                    completion.CarryOverMessages.Add(message);
+                }
+            }
+        }
+
+        public Task<T> WaitExternalEventAsync<T>(string name, CancellationToken cancellation = default)
+        {
+            return this.externalEvent.WaitAsync<T>(name, cancellation);
         }
 
         public async Task<T> RunActionAsync<T>(OrchestrationAction action)
         {
             PendingAction pending = await this.DispatchActionAsync(action);
             string? result = await pending.WaitAsync();
-            return this.converter.Deserialize<T>(result)!;
+            return this.Converter.Deserialize<T>(result)!;
         }
 
         public async Task RunActionAsync(OrchestrationAction action)
@@ -108,7 +140,7 @@ partial class OrchestrationRunner
             if (!this.WorkItem.IsReplaying)
             {
                 // TODO: cancellation?.
-                await this.Writer.WriteAsync(action.ToMessage(this.converter));
+                await this.Writer.WriteAsync(action.ToMessage(this.Converter));
             }
 
             return pending;
@@ -128,6 +160,7 @@ partial class OrchestrationRunner
                 case ExecutionTerminated m: this.OnExecutionTerminated(m); break;
                 case WorkScheduledMessage m: this.OnOutboundWork(m); break;
                 case WorkCompletedMessage m: this.OnWorkCompleted(m); break;
+                case EventReceived m: this.OnEventReceived(m); break;
                 case EventSent m: this.OnOutboundWork(m); break;
                 case TimerScheduled m: this.OnOutboundWork(m); break;
                 case TimerFired m: this.OnTimerFired(m); break;
@@ -142,8 +175,8 @@ partial class OrchestrationRunner
         void OnExecutionStarted(ExecutionStarted message)
         {
             TaskOrchestrationContext context = new Context(this);
-            object? input = this.converter.Deserialize(message.Input, this.orchestrator.InputType);
-            this.executionTask = this.orchestrator.RunAsync(context, input);
+            this.Input = this.Converter.Deserialize(message.Input, this.orchestrator.InputType);
+            this.executionTask = this.orchestrator.RunAsync(context, this.Input);
         }
 
         void OnExecutionTerminated(ExecutionTerminated message)
@@ -207,7 +240,7 @@ partial class OrchestrationRunner
                 return;
             }
 
-
+            this.externalEvent.OnExternalEvent(message);
         }
 
         async ValueTask<bool> CheckForCompletionAsync()
@@ -240,7 +273,7 @@ partial class OrchestrationRunner
                         this.GetNextId(),
                         DateTimeOffset.UtcNow,
                         null,
-                        TaskFailureDetails.FromException(ex));
+                        TaskFailureDetails.FromException(ex, includeStackTrace: true));
                 }
                 else
                 {
@@ -248,7 +281,7 @@ partial class OrchestrationRunner
                     completed = new ExecutionCompleted(
                         this.GetNextId(),
                         DateTimeOffset.UtcNow,
-                        this.converter.Serialize(result),
+                        this.Converter.Serialize(result),
                         null);
                 }
 

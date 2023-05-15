@@ -14,7 +14,7 @@ namespace Microsoft.DurableTask;
 /// <param name="InnerFailure">The inner cause of the task failure.</param>
 public record TaskFailureDetails(string ErrorType, string ErrorMessage, string? StackTrace, TaskFailureDetails? InnerFailure)
 {
-    Type? exceptionType;
+    readonly CausedByContainer container = new();
 
     /// <summary>
     /// Gets a debug-friendly description of the failure information.
@@ -39,8 +39,8 @@ public record TaskFailureDetails(string ErrorType, string ErrorMessage, string? 
     /// </returns>
     public bool IsCausedBy<T>() where T : Exception
     {
-        this.exceptionType ??= Type.GetType(this.ErrorType, throwOnError: false);
-        return this.exceptionType != null && typeof(T).IsAssignableFrom(this.exceptionType);
+        Type? t = this.container.GetOrInitialize(this);
+        return t is not null && typeof(T).IsAssignableFrom(t);
     }
 
     /// <summary>
@@ -48,7 +48,16 @@ public record TaskFailureDetails(string ErrorType, string ErrorMessage, string? 
     /// </summary>
     /// <param name="exception">The exception to use.</param>
     /// <returns>A new task failure details.</returns>
-    public static TaskFailureDetails FromException(Exception exception)
+    /// <remarks>Does not include stack trace.</remarks>
+    public static TaskFailureDetails FromException(Exception exception) => FromException(exception, false);
+
+    /// <summary>
+    /// Creates a task failure details from an <see cref="Exception" />.
+    /// </summary>
+    /// <param name="exception">The exception to use.</param>
+    /// <param name="includeStackTrace"><c>true</c> to include stack trace, <c>false</c> to leave out.</param>
+    /// <returns>A new task failure details.</returns>
+    public static TaskFailureDetails FromException(Exception exception, bool includeStackTrace)
     {
         Check.NotNull(exception);
         if (exception is CoreOrchestrationException coreEx)
@@ -60,7 +69,65 @@ public record TaskFailureDetails(string ErrorType, string ErrorMessage, string? 
                 null /* InnerFailure */);
         }
 
+        if (exception is TaskFailedException failed)
+        {
+            return new TaskFailureDetails(
+                exception.GetType().ToString(),
+                exception.Message,
+                includeStackTrace ? exception.StackTrace : null,
+                failed.FailureDetails);
+        }
+
         // TODO: consider populating inner details.
-        return new TaskFailureDetails(exception.GetType().ToString(), exception.Message, null, null);
+        return new TaskFailureDetails(
+            exception.GetType().ToString(),
+            exception.Message,
+            includeStackTrace ? exception.StackTrace : null,
+            null);
+    }
+
+    class CausedByContainer : IEquatable<CausedByContainer>
+    {
+        // Helper class to hold exceptions but not use them in equality comparison.
+        bool initialized;
+        Type? exceptionType;
+
+        public Type? GetOrInitialize(TaskFailureDetails details)
+        {
+            static Type? Initialize(TaskFailureDetails details)
+            {
+                Type t = Type.GetType(details.ErrorType, throwOnError: false);
+                if (details.InnerFailure is null || !typeof(TaskFailedException).IsAssignableFrom(t))
+                {
+                    return t;
+                }
+
+                return Initialize(details.InnerFailure);
+            }
+
+            if (this.initialized)
+            {
+                return this.exceptionType;
+            }
+
+            lock (this)
+            {
+                if (this.initialized)
+                {
+                    return this.exceptionType;
+                }
+
+                this.exceptionType = Initialize(details);
+                this.initialized = true;
+            }
+
+            return this.exceptionType;
+        }
+
+        public bool Equals(CausedByContainer other) => true;
+
+        public override bool Equals(object obj) => obj is CausedByContainer;
+
+        public override int GetHashCode() => typeof(CausedByContainer).GetHashCode();
     }
 }

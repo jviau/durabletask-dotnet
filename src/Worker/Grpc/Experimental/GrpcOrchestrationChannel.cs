@@ -90,6 +90,8 @@ partial class GrpcOrchestrationChannel : Channel<OrchestrationMessage>
                 e.EventId, timestamp, x.FireAt.ToDateTimeOffset()),
             { TimerFired: { } x } => new TimerFired(
                 e.EventId, timestamp, x.TimerId),
+            { EventRaised: { } x } => new EventReceived(e.EventId, timestamp, x.Name, x.Input),
+            { EventSent: { } x } => new EventSent(e.EventId, timestamp, x.InstanceId, x.Name, x.Input),
             _ => throw new NotSupportedException(),
         };
     }
@@ -166,6 +168,14 @@ partial class GrpcOrchestrationChannel : Channel<OrchestrationMessage>
                 action.CreateTimer = new()
                 {
                     FireAt = x.FireAt.ToTimestamp(),
+                };
+                break;
+            case EventSent x:
+                action.SendEvent = new()
+                {
+                    Instance = new() { InstanceId = x.InstanceId },
+                    Name = x.Name,
+                    Data = x.Input,
                 };
                 break;
         }

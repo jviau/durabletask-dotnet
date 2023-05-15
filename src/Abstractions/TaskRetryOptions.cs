@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Threading;
+
 namespace Microsoft.DurableTask;
 
 /// <summary>
@@ -78,5 +80,69 @@ public sealed class TaskRetryOptions
     {
         Check.NotNull(handler);
         return FromRetryHandler(context => Task.FromResult(handler.Invoke(context)));
+    }
+
+    /// <summary>
+    /// use this retry policy to invoke an orchestration action.
+    /// </summary>
+    /// <typeparam name="T">The return type.</typeparam>
+    /// <param name="context">The orchestration context.</param>
+    /// <param name="invoker">The call to retry.</param>
+    /// <param name="cancellation">The cancellation token.</param>
+    /// <returns>The result of <paramref name="invoker"/>.</returns>
+    internal Task<T> InvokeAsync<T>(
+        TaskOrchestrationContext context, Func<CancellationToken, Task<T>> invoker, CancellationToken cancellation)
+    {
+        return this switch
+        {
+            { Policy: { } p } => p.InvokeAsync(context, invoker, cancellation),
+            { Handler: { } h } => InvokeHandlerAsync(h, context, invoker, cancellation),
+            _ => throw new InvalidOperationException("No retry policy configured."), // unreachable
+        };
+    }
+
+    static async Task<T> InvokeHandlerAsync<T>(
+        AsyncRetryHandler handler,
+        TaskOrchestrationContext context,
+        Func<CancellationToken, Task<T>> invoker,
+        CancellationToken cancellation)
+    {
+        DateTime start = context.CurrentUtcDateTime;
+        int attempt = 0;
+
+        while (true)
+        {
+            try
+            {
+                return await invoker.Invoke(cancellation);
+            }
+            catch (Exception ex)
+            {
+                TaskFailureDetails details = TaskFailureDetails.FromException(ex);
+                if (details.IsCausedBy<TaskMissingException>())
+                {
+                    throw;
+                }
+
+                attempt++;
+                RetryContext retryContext = new(
+                    context,
+                    attempt,
+                    details,
+                    context.CurrentUtcDateTime.Subtract(start),
+                    default);
+
+                if (!await handler(retryContext))
+                {
+                    throw;
+                }
+
+                if (attempt == int.MaxValue)
+                {
+                    // Integer overflow check.
+                    throw;
+                }
+            }
+        }
     }
 }
