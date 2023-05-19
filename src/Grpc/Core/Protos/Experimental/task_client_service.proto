@@ -10,7 +10,7 @@ option go_package = "/internal/protos/experimental";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/empty.proto";
-import "common.proto";
+import "experimental/common.proto";
 
 // Submit a new orchestration to the work queue.
 message ScheduleOrchestrationRequest {

@@ -9,7 +9,7 @@ option go_package = "/internal/protos/experimental";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
-import "common.proto";
+import "experimental/common.proto";
 
 // Represents a request to run an orchestration.
 message OrchestratorWorkItem {

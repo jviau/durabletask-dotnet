@@ -8,8 +8,8 @@ option java_package = "com.microsoft.durabletask.implementation.protobuf.experim
 option go_package = "/internal/protos/experimental";
 
 import "google/protobuf/empty.proto";
-import "activity.proto";
-import "orchestrator.proto";
+import "experimental/activity.proto";
+import "experimental/orchestrator.proto";
 
 message GetWorkItemsRequest {}
 

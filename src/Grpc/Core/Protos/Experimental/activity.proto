@@ -8,7 +8,7 @@ option java_package = "com.microsoft.durabletask.implementation.protobuf.experim
 option go_package = "/internal/protos/experimental";
 
 import "google/protobuf/wrappers.proto";
-import "common.proto";
+import "experimental/common.proto";
 
 message ActivityWorkItem {
     int32 id = 1;

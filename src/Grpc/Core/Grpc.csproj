@@ -22,11 +22,7 @@
   <ItemGroup>
     <!-- Only generate gRPC service/client for files that end with _service.proto.
         Otherwise model-only proto files will cause stylecop warnings due to empty files. -->
-    <Protobuf Include="$(EngRoot)proto/protos/**/*.proto" GrpcServices="None" />
-    <Protobuf Update="$(EngRoot)proto/protos/**/*_service.proto" GrpcServices="Both" />
-    <None Include="$(EngRoot)proto/protos/**/*.proto" LinkBase="proto" />
-
-    <Protobuf Include="Protos/**/*.proto" GrpcServices="None" />
+    <Protobuf Include="Protos/**/*.proto" GrpcServices="None" ProtoRoot="Protos" />
     <Protobuf Update="Protos/**/*_service.proto" GrpcServices="Both" />
   </ItemGroup>
 
