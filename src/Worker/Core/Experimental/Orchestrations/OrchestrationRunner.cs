@@ -13,6 +13,7 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
 {
     readonly IServiceProvider services;
     readonly ILoggerFactory loggerFactory;
+    readonly ILogger logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OrchestrationRunner"/> class.
@@ -26,6 +27,7 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
     {
         this.services = Check.NotNull(services);
         this.loggerFactory = Check.NotNull(loggerFactory);
+        this.logger = loggerFactory.CreateLogger<OrchestrationRunner>();
     }
 
     /// <inheritdoc/>
@@ -64,6 +66,10 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
             SynchronizationContext.SetSynchronizationContext(context);
             Cursor cursor = new(workItem, this.Options, orchestrator, this.loggerFactory);
             await cursor.RunAsync();
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Error running orchestration {InstanceId}", workItem.Id);
         }
         finally
         {

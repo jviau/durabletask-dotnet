@@ -86,8 +86,9 @@ public record ExecutionTerminated(int Id, DateTimeOffset Timestamp, string? Resu
 /// <param name="Id">The ID of the message.</param>
 /// <param name="Timestamp">The timestamp this message originally occured at.</param>
 /// <param name="Result">The new input for the next orchestration run.</param>
+/// <param name="Version">The new version for the next iteration.</param>
 #pragma warning disable CA1711 // Identifiers should not have incorrect suffix. Justification: not a suffix, but a concept.
-public record ContinueAsNew(int Id, DateTimeOffset Timestamp, string? Result)
+public record ContinueAsNew(int Id, DateTimeOffset Timestamp, string? Result, string? Version = null)
     : ExecutionCompleted(Id, Timestamp, Result, null)
 {
     /// <summary>
@@ -186,4 +187,13 @@ public record SubOrchestrationCompleted(
 /// Options that may be provided when scheduled a sub <see cref="ITaskOrchestrator" />.
 /// </summary>
 /// <param name="InstanceId">The sub-orchestrations instance ID.</param>
-public record SubOrchestrationScheduledOptions(string? InstanceId);
+/// <param name="InheritMetadata">True to inherit metadata, false otherwise. Defaults to true.</param>
+/// <param name="FireAndForget">Fire and forget this orchestration.</param>
+public record SubOrchestrationScheduledOptions(
+    string? InstanceId = null, bool InheritMetadata = true, bool FireAndForget = false)
+{
+    /// <summary>
+    /// Gets the sub-orchestrations metadata.
+    /// </summary>
+    public IDictionary<string, string> Metadata { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+}

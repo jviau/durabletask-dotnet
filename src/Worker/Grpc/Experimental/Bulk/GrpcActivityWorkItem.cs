@@ -4,7 +4,7 @@
 using static Microsoft.DurableTask.Protobuf.TaskHubSidecarService;
 using P = Microsoft.DurableTask.Protobuf;
 
-namespace Microsoft.DurableTask.Worker.Grpc;
+namespace Microsoft.DurableTask.Worker.Grpc.Bulk;
 
 /// <summary>
 /// An activity work item from the gRPC sidecar.
@@ -59,7 +59,4 @@ class GrpcActivityWorkItem : ActivityWorkItem
 
         await this.sidecar.CompleteActivityTaskAsync(response);
     }
-
-    /// <inheritdoc/>
-    public override ValueTask<bool> TryRenewLockAsync(CancellationToken cancellation = default) => new(true);
 }

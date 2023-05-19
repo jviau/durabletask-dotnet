@@ -5,7 +5,7 @@ using System.Threading.Channels;
 using static Microsoft.DurableTask.Protobuf.TaskHubSidecarService;
 using P = Microsoft.DurableTask.Protobuf;
 
-namespace Microsoft.DurableTask.Worker.Grpc;
+namespace Microsoft.DurableTask.Worker.Grpc.Bulk;
 
 /// <summary>
 /// An activity work item from the gRPC sidecar.
@@ -26,7 +26,7 @@ class GrpcOrchestrationWorkItem : OrchestrationWorkItem
     }
 
     /// <inheritdoc/>
-    public override ParentOrchestrationInstance? Parent { get; init; }
+    public override ParentOrchestrationInstance? Parent { get; } // TODO: set this
 
     /// <inheritdoc/>
     public override string? CustomStatus
@@ -40,9 +40,6 @@ class GrpcOrchestrationWorkItem : OrchestrationWorkItem
 
     /// <inheritdoc/>
     public override Channel<OrchestrationMessage> Channel => this.channel;
-
-    /// <inheritdoc/>
-    public override ValueTask<bool> TryRenewLockAsync(CancellationToken cancellation = default) => new(true);
 
     /// <inheritdoc/>
     public override Task ReleaseAsync() => this.channel.FlushAsync();

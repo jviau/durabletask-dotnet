@@ -23,7 +23,7 @@ public abstract class OrchestrationWorkItem : WorkItem
     /// <summary>
     /// Gets the parent orchestration instance details.
     /// </summary>
-    public abstract ParentOrchestrationInstance? Parent { get; init; }
+    public abstract ParentOrchestrationInstance? Parent { get; }
 
     /// <summary>
     /// Gets or sets the custom status of this orchestration.
@@ -44,13 +44,6 @@ public abstract class OrchestrationWorkItem : WorkItem
     /// Gets a value indicating whether this orchestration channel is complete or not.
     /// </summary>
     internal bool IsCompleted => this.Channel.Reader.Completion.IsCompleted;
-
-    /// <summary>
-    /// Renews the lock on this channel, keeping the session alive.
-    /// </summary>
-    /// <param name="cancellation">Cancellation token to abort lock renewal.</param>
-    /// <returns>True if lock was renewed, false otherwise.</returns>
-    public abstract ValueTask<bool> TryRenewLockAsync(CancellationToken cancellation = default);
 
     /// <summary>
     /// Signals this orchestration has finished.

@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Core/Client.csproj" />
-    <ProjectReference Include="../../Grpc/Grpc.csproj" />
+    <ProjectReference Include="../../Grpc/Core/Grpc.csproj" />
   </ItemGroup>
 
   <ItemGroup>

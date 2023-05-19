@@ -137,7 +137,7 @@ class ShimDurableTaskClient : DurableTaskClient
         OrchestrationInstance instance = new()
         {
             InstanceId = instanceId,
-            ExecutionId = Guid.NewGuid().ToString("N"),
+            ExecutionId = Guid.NewGuid().ToString(),
         };
 
         string? serializedInput = this.DataConverter.Serialize(input);

@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 using Xunit.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Microsoft.DurableTask.Grpc.Tests;
+namespace Microsoft.DurableTask.Grpc.Bulk.Tests;
 
 /// <summary>
 /// Base class for integration tests that use a in-process sidecar for executing orchestrations.

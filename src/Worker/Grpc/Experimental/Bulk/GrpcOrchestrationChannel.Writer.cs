@@ -3,7 +3,7 @@
 
 using System.Threading.Channels;
 
-namespace Microsoft.DurableTask.Worker.Grpc;
+namespace Microsoft.DurableTask.Worker.Grpc.Bulk;
 
 /// <summary>
 /// A threading channel for a gRPC orchestrator request.

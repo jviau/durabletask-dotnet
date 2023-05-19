@@ -3,7 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="$(SrcRoot)Client/Grpc/Client.Grpc.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Grpc/Worker.Grpc.csproj" />
-    <ProjectReference Include="$(SrcRoot)Grpc/Hub/Grpc.Hub.csproj" />
+    <ProjectReference Include="..\..\src\Grpc\Hub\Grpc.Hub.csproj" />
   </ItemGroup>
 
   <ItemGroup>

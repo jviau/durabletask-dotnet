@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net6.0</TargetFrameworks>
+    <PackageDescription>The gRPC Protobuf .NET services for Durable Task Framework.</PackageDescription>
+    <EnableStyleCop>true</EnableStyleCop>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.Tools" Version="2.53.0" PrivateAssets="All" />
+    <PackageReference Include="Google.Protobuf" Version="3.21.12" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="Grpc.Core" Version="2.46.5" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <PackageReference Include="Grpc.Net.Client" Version="2.50.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only generate gRPC service/client for files that end with _service.proto.
+        Otherwise model-only proto files will cause stylecop warnings due to empty files. -->
+    <Protobuf Include="$(EngRoot)proto/protos/**/*.proto" GrpcServices="None" />
+    <Protobuf Update="$(EngRoot)proto/protos/**/*_service.proto" GrpcServices="Both" />
+    <None Include="$(EngRoot)proto/protos/**/*.proto" LinkBase="proto" />
+
+    <Protobuf Include="Protos/**/*.proto" GrpcServices="None" />
+    <Protobuf Update="Protos/**/*_service.proto" GrpcServices="Both" />
+  </ItemGroup>
+
+</Project>

@@ -1,9 +1,11 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.DurableTask.Worker.Grpc;
 using Microsoft.DurableTask.Worker.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+
+using B = Microsoft.DurableTask.Worker.Grpc.Bulk;
+using S = Microsoft.DurableTask.Worker.Grpc.Stream;
 
 namespace Microsoft.DurableTask.Worker;
 
@@ -18,16 +20,35 @@ public static class ChannelDurableTaskWorkerBuilderExtensions
     /// <param name="builder">The builder to configure.</param>
     /// <param name="channel">The gRPC channel to use.</param>
     /// <returns>The same builder, for call chaining.</returns>
-    public static IDurableTaskWorkerBuilder UseGrpcChannel(
+    public static IDurableTaskWorkerBuilder UseBulkGrpcChannel(
         this IDurableTaskWorkerBuilder builder, GrpcChannel channel)
     {
         Check.NotNull(builder, nameof(builder));
         builder.UseChannels();
 
-        builder.Services.AddSingleton(sp => ActivatorUtilities.CreateInstance<GrpcWorkItemChannel>(sp, channel));
-        builder.Services.AddHostedService(sp => sp.GetRequiredService<GrpcWorkItemChannel>());
+        builder.Services.AddSingleton(sp => ActivatorUtilities.CreateInstance<B.GrpcWorkItemChannel>(sp, channel));
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<B.GrpcWorkItemChannel>());
         builder.Services.AddOptions<ChannelDurableTaskWorkerOptions>(builder.Name)
-            .Configure<GrpcWorkItemChannel>((o, c) => o.WorkItemReader = c.Reader);
+            .Configure<B.GrpcWorkItemChannel>((o, c) => o.WorkItemReader = c.Reader);
+        return builder;
+    }
+
+    /// <summary>
+    /// Configures the builder to use the <see cref="ChannelDurableTaskWorker"/>.
+    /// </summary>
+    /// <param name="builder">The builder to configure.</param>
+    /// <param name="channel">The gRPC channel to use.</param>
+    /// <returns>The same builder, for call chaining.</returns>
+    public static IDurableTaskWorkerBuilder UseStreamGrpcChannel(
+        this IDurableTaskWorkerBuilder builder, GrpcChannel channel)
+    {
+        Check.NotNull(builder, nameof(builder));
+        builder.UseChannels();
+
+        builder.Services.AddSingleton(sp => ActivatorUtilities.CreateInstance<S.GrpcWorkItemChannel>(sp, channel));
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<S.GrpcWorkItemChannel>());
+        builder.Services.AddOptions<ChannelDurableTaskWorkerOptions>(builder.Name)
+            .Configure<S.GrpcWorkItemChannel>((o, c) => o.WorkItemReader = c.Reader);
         return builder;
     }
 }

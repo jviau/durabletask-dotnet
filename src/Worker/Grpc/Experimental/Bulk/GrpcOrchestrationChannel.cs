@@ -5,7 +5,7 @@ using System.Threading.Channels;
 using static Microsoft.DurableTask.Protobuf.TaskHubSidecarService;
 using P = Microsoft.DurableTask.Protobuf;
 
-namespace Microsoft.DurableTask.Worker.Grpc;
+namespace Microsoft.DurableTask.Worker.Grpc.Bulk;
 
 /// <summary>
 /// A threading channel for a gRPC orchestrator request.

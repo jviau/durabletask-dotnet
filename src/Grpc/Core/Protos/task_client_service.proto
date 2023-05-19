@@ -1,0 +1,166 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+syntax = "proto3";
+
+option csharp_namespace = "Microsoft.DurableTask.Protobuf.Experimental";
+option java_package = "com.microsoft.durabletask.implementation.protobuf.experimental";
+option go_package = "/internal/protos/experimental";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/empty.proto";
+import "common.proto";
+
+// Submit a new orchestration to the work queue.
+message ScheduleOrchestrationRequest {
+    TaskName name = 1;
+    google.protobuf.StringValue input = 2;
+    ScheduleOrchestrationOptions options = 3;
+    map<string, google.protobuf.StringValue> metadata = 4;
+}
+
+message ScheduleOrchestrationOptions {
+    google.protobuf.StringValue instance_id = 1;
+    google.protobuf.Timestamp start_at = 2;
+}
+
+// Gets the current info for an orchestration.
+message GetOrchestrationRequest {
+    google.protobuf.StringValue instance_id = 1;
+    repeated ExpandOrchestrationDetail expand = 2;
+}
+
+// What details of an orchestration to expand in the response.
+enum ExpandOrchestrationDetail {
+    EXPAND_ORCHESTRATION_DETAIL_UNDEFINED = 0;
+    EXPAND_ORCHESTRATION_DETAIL_INPUT = 1;
+    EXPAND_ORCHESTRATION_DETAIL_OUTPUT = 2;
+    EXPAND_ORCHESTRATION_DETAIL_METADATA = 3;
+}
+
+// The status of an orchestration.
+message OrchestrationInfoResponse {
+    OrchestrationId id = 1;
+    TaskName name = 2;
+    OrchestrationStatus status = 3;
+    google.protobuf.Timestamp created_at = 4;
+    google.protobuf.Timestamp scheduled_start_at = 5;
+    google.protobuf.Timestamp last_updated_at = 6;
+    google.protobuf.StringValue input = 7; // only present when ExpandOrchestrationDetail.INPUT requested
+    google.protobuf.StringValue output = 8; // only present when ExpandOrchestrationDetail.OUTPUT requested
+    TaskError error = 9; // only present when ExpandOrchestrationDetail.OUTPUT requested
+    map<string, google.protobuf.StringValue> metadata = 10; // only present when ExpandOrchestrationDetail.METADATA requested
+}
+
+// The status of an orchestration.
+message OrchestrationStatus {
+    OrchestrationState status = 1; // the runtime status.
+    google.protobuf.StringValue sub_status = 2; // the user defined status.
+}
+
+// Raise an event for an orchestration.
+message RaiseEventRequest {
+    string instance_id = 1;
+    string name = 2;
+    google.protobuf.StringValue input = 3;
+}
+
+// Wait for an orchestration to reach one of the provided states.
+// No states provided will default to any terminal state.
+message WaitForOrchestrationRequest {
+    string instance_id = 1;
+    repeated OrchestrationState states = 2;
+    repeated ExpandOrchestrationDetail expand = 3;
+}
+
+// Suspend an orchestration, pausing execution until a resume call is performed.
+// Does nothing if the orchestration is already terminal or suspended.
+message SuspedOrchestrationRequest {
+    string instance_id = 1;
+    google.protobuf.StringValue reason = 2;
+}
+
+// Resume a previously suspended orchestration.
+// Does nothing if the orchestration was not suspended.
+message ResumeOrchestrationRequest {
+    string instance_id = 1;
+    google.protobuf.StringValue reason = 2;
+}
+
+// Terminate an orchestration.
+message TerminateOrchestrationRequest {
+    string instance_id = 1;
+    google.protobuf.StringValue reason = 2;
+}
+
+// Query orchestrations
+message QueryOrchestrationsRequest {
+    repeated OrchestrationState include_states = 1;
+    google.protobuf.Timestamp created_from = 2;
+    google.protobuf.Timestamp created_to = 3;
+    google.protobuf.StringValue instance_id_prefix = 4;
+    repeated ExpandOrchestrationDetail expand = 5;
+    google.protobuf.StringValue continuation_token = 6;
+    int32 page_size = 7;
+}
+
+// Result for a QueryOrchestrationsRequest.
+message QueryOrchestrationsResponse {
+    repeated OrchestrationStatus orchestrations = 1;
+    google.protobuf.StringValue continuation_token = 2;
+}
+
+// Purge orchestrations from the hub, cleaning them up from whatever persistance the hub uses.
+message PurgeOrchestrationsRequest {
+    oneof request {
+        string instance_id = 1; // purge a singular orchestration.
+        PurgeFilter filter = 2; // purge a range of orchestrations.
+    }
+}
+
+// Result for a PurgeOrchestrationsRequest.
+message PurgeOrchestrationsResponse {
+    int32 purged_count = 1; // count of orchestrations purged.
+    google.protobuf.StringValue continuation_token = 2; // if we need too many for a single call.
+}
+
+// Filter to purge multiple orchestrations.
+message PurgeFilter {
+    google.protobuf.Timestamp created_from = 1;
+    google.protobuf.Timestamp created_to = 2;
+    repeated OrchestrationState include_states = 3;
+}
+
+service DurableTaskClient {
+    // Schedule a new orchestration instance to run.
+    rpc ScheduleOrchestration (ScheduleOrchestrationRequest) returns (OrchestrationInfoResponse);
+    
+    // Get info on an existing orchestration.
+    rpc GetOrchestration (GetOrchestrationRequest) returns (OrchestrationInfoResponse);
+
+    // Monitor an orchestration, receiving status updates when this change.
+    // TODO: give a more efficient return type. Including only what has changed.
+    rpc MonitorOrchestration (GetOrchestrationRequest) returns (stream OrchestrationInfoResponse);
+
+    // Wait for an orchestration to reach a specific state.
+    rpc WaitForOrchestrationState (WaitForOrchestrationRequest) returns (OrchestrationInfoResponse);
+
+    // Get info on multiple orchestrations.
+    rpc QueryOrchestrations (QueryOrchestrationsRequest) returns (QueryOrchestrationsResponse);
+
+    // Purge orchestrations for the hubs persistance layer.
+    rpc PurgeOrchestrations (PurgeOrchestrationsRequest) returns (PurgeOrchestrationsResponse);
+
+    // Raise event for an existing orchestration.
+    rpc RaiseOrchestrationEvent (RaiseEventRequest) returns (google.protobuf.Empty);
+
+    // Suspend an orchestration, pausing all executions of it.
+    rpc SuspendOrchestration (SuspedOrchestrationRequest) returns (OrchestrationInfoResponse);
+
+    // Resume a previously suspended orchestration, allowing execution to continue.
+    rpc ResumeOrchestration (ResumeOrchestrationRequest) returns (OrchestrationInfoResponse);
+
+    // Terminate an orchestration, forcibly ending its execution.
+    rpc TerminateOrchestration (TerminateOrchestrationRequest) returns (OrchestrationInfoResponse);
+}

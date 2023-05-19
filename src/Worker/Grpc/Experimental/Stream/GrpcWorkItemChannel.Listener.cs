@@ -4,10 +4,10 @@
 using System.Threading.Channels;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
-using static Microsoft.DurableTask.Protobuf.TaskHubSidecarService;
-using P = Microsoft.DurableTask.Protobuf;
+using static Microsoft.DurableTask.Protobuf.Experimental.DurableTaskHub;
+using P = Microsoft.DurableTask.Protobuf.Experimental;
 
-namespace Microsoft.DurableTask.Worker.Grpc;
+namespace Microsoft.DurableTask.Worker.Grpc.Stream;
 
 /// <summary>
 /// Receives gRPC calls and produces work items.
@@ -16,14 +16,12 @@ public partial class GrpcWorkItemChannel
 {
     class Listener
     {
-        static readonly Google.Protobuf.WellKnownTypes.Empty EmptyMessage = new();
-
-        readonly TaskHubSidecarServiceClient sidecar;
+        readonly DurableTaskHubClient client;
         readonly ILogger logger;
 
-        public Listener(TaskHubSidecarServiceClient sidecar, ILogger logger)
+        public Listener(DurableTaskHubClient client, ILogger logger)
         {
-            this.sidecar = sidecar;
+            this.client = client;
             this.logger = logger;
         }
 
@@ -33,7 +31,9 @@ public partial class GrpcWorkItemChannel
             {
                 try
                 {
-                    AsyncServerStreamingCall<P.WorkItem> stream = await this.ConnectAsync(cancellation);
+                    P.GetWorkItemsRequest request = new();
+                    AsyncServerStreamingCall<P.WorkItem> stream = this.client.WorkItemStream(
+                        request, cancellationToken: cancellation);
                     await this.ProcessWorkItemsAsync(writer, stream, cancellation);
                 }
                 catch (RpcException) when (cancellation.IsCancellationRequested)
@@ -75,15 +75,6 @@ public partial class GrpcWorkItemChannel
             }
         }
 
-        async Task<AsyncServerStreamingCall<P.WorkItem>> ConnectAsync(CancellationToken cancellation)
-        {
-            await this.sidecar!.HelloAsync(EmptyMessage, cancellationToken: cancellation);
-            this.logger.EstablishedWorkItemConnection();
-
-            // Get the stream for receiving work-items
-            return this.sidecar!.GetWorkItems(new P.GetWorkItemsRequest(), cancellationToken: cancellation);
-        }
-
         async Task ProcessWorkItemsAsync(
             ChannelWriter<WorkItem> writer, AsyncServerStreamingCall<P.WorkItem> stream, CancellationToken cancellation)
         {
@@ -100,8 +91,8 @@ public partial class GrpcWorkItemChannel
         {
             return workItem switch
             {
-                { ActivityRequest: { } x } => new GrpcActivityWorkItem(x, this.sidecar),
-                { OrchestratorRequest: { } x } => new GrpcOrchestrationWorkItem(x, this.sidecar),
+                { Activity: { } x } => new GrpcActivityWorkItem(x, this.client),
+                { Orchestrator: { } x } => new GrpcOrchestrationWorkItem(x, this.client),
             };
         }
     }

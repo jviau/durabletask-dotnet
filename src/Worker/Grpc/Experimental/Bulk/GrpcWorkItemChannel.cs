@@ -10,7 +10,7 @@ using static Microsoft.DurableTask.Protobuf.TaskHubSidecarService;
 using Channel = System.Threading.Channels.Channel;
 #endif
 
-namespace Microsoft.DurableTask.Worker.Grpc;
+namespace Microsoft.DurableTask.Worker.Grpc.Bulk;
 
 /// <summary>
 /// Receives gRPC calls and produces work items.

@@ -58,21 +58,30 @@ partial class OrchestrationRunner
 
         public async Task RunAsync()
         {
-            while (await this.Reader.WaitToReadAsync())
+            try
             {
-                while (this.Reader.TryRead(out OrchestrationMessage? message))
+                while (await this.Reader.WaitToReadAsync())
                 {
-                    this.logger.LogTrace("Received message of type {MessageType}", message.GetType());
-                    this.HandleMessage(message);
-                }
+                    while (this.Reader.TryRead(out OrchestrationMessage? message))
+                    {
+                        this.logger.LogTrace("Received message of type {MessageType}", message.GetType());
+                        this.HandleMessage(message);
+                    }
 
-                if (await this.CheckForCompletionAsync())
-                {
-                    break;
+                    if (await this.CheckForCompletionAsync())
+                    {
+                        break;
+                    }
                 }
             }
-
-            await this.WorkItem.ReleaseAsync();
+            catch (Exception ex)
+            {
+                this.Writer.TryComplete(ex);
+            }
+            finally
+            {
+                await this.WorkItem.ReleaseAsync();
+            }
         }
 
         public void SetCustomStatus(object? status)

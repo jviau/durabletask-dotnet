@@ -1,0 +1,41 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+syntax = "proto3";
+
+option csharp_namespace = "Microsoft.DurableTask.Protobuf.Experimental";
+option java_package = "com.microsoft.durabletask.implementation.protobuf.experimental";
+option go_package = "/internal/protos/experimental";
+
+import "google/protobuf/wrappers.proto";
+
+// The ID of a orchestration.
+message OrchestrationId {
+    string instance_id = 1;
+    google.protobuf.StringValue execution_id = 2; // Can be left null to let the system choose the currently active instance ID.
+}
+
+// Name of the task at hand.
+message TaskName {
+    string name = 1;
+    google.protobuf.StringValue version = 2;
+}
+
+// Error information for a failed task.
+message TaskError {
+    string error_type = 1;
+    string error_message = 2;
+    google.protobuf.StringValue stack_trace = 3;
+    TaskError inner_error = 4;
+}
+
+enum OrchestrationState {
+    ORCHESTRATION_STATE_UNSPECIFIED = 0;
+    ORCHESTRATION_STATE_PENDING = 1;
+    ORCHESTRATION_STATE_RUNNING = 2;
+    ORCHESTRATION_STATE_SUSPENDED = 3;
+    ORCHESTRATION_STATE_COMPLETED = 4;
+    ORCHESTRATION_STATE_FAILED = 5;
+    ORCHESTRATION_STATE_TERMINATED = 6;
+    ORCHESTRATION_STATE_CANCELED = 7;
+}

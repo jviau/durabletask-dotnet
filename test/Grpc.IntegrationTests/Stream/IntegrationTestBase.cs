@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 using Xunit.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Microsoft.DurableTask.Grpc.Tests;
+namespace Microsoft.DurableTask.Grpc.Stream.Tests;
 
 /// <summary>
 /// Base class for integration tests that use a in-process sidecar for executing orchestrations.
@@ -67,13 +67,13 @@ public class IntegrationTestBase : IClassFixture<GrpcSidecarFixture>, IDisposabl
             {
                 services.AddDurableTaskWorker(b =>
                 {
-                    b.UseBulkGrpcChannel(this.sidecarFixture.Channel);
+                    b.UseStreamGrpcChannel(this.sidecarFixture.Channel);
                     configure(b);
                 });
 
                 services.AddDurableTaskClient(b =>
                 {
-                    b.UseGrpc(this.sidecarFixture.Channel);
+                    b.UseStreamGrpc(this.sidecarFixture.Channel);
                     b.RegisterDirectly();
                 });
             });
@@ -88,7 +88,7 @@ public class IntegrationTestBase : IClassFixture<GrpcSidecarFixture>, IDisposabl
         return logs;
     }
 
-    protected struct HostTestLifetime : IAsyncDisposable
+    protected readonly struct HostTestLifetime : IAsyncDisposable
     {
         readonly IHost host;
         readonly CancellationToken cancellation;

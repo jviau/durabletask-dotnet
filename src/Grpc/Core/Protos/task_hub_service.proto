@@ -1,0 +1,33 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+syntax = "proto3";
+
+option csharp_namespace = "Microsoft.DurableTask.Protobuf.Experimental";
+option java_package = "com.microsoft.durabletask.implementation.protobuf.experimental";
+option go_package = "/internal/protos/experimental";
+
+import "google/protobuf/empty.proto";
+import "activity.proto";
+import "orchestrator.proto";
+
+message GetWorkItemsRequest {}
+
+message WorkItem {
+    oneof item {
+        OrchestratorWorkItem orchestrator = 1;
+        ActivityWorkItem activity = 2;
+    }
+}
+
+// Service for receiving and processing work items.
+service DurableTaskHub {
+    // Opens a stream to receive work items from the hub.
+    rpc WorkItemStream (GetWorkItemsRequest) returns (stream WorkItem);
+
+    // Opens a stream for an orchestration.
+    rpc OrchestrationStream (stream OrchestratorAction) returns (stream OrchestratorMessage);
+
+    // Completes a task activity.
+    rpc CompleteTaskActivity (ActivityResult) returns (google.protobuf.Empty);
+}

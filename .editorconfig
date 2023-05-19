@@ -228,6 +228,10 @@ tab_width = 4
 indent_size = 4
 end_of_line = crlf
 
+# Performance
+
+dotnet_diagnostic.CA1848.severity = none # Use the LoggerMessage delegates
+
 # IDE rules
 dotnet_diagnostic.IDE0073.severity = suggestion # Require file header.
 

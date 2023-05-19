@@ -1,0 +1,26 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+syntax = "proto3";
+
+option csharp_namespace = "Microsoft.DurableTask.Protobuf.Experimental";
+option java_package = "com.microsoft.durabletask.implementation.protobuf.experimental";
+option go_package = "/internal/protos/experimental";
+
+import "google/protobuf/wrappers.proto";
+import "common.proto";
+
+message ActivityWorkItem {
+    int32 id = 1;
+    TaskName name = 2;
+    google.protobuf.StringValue input = 3;
+    OrchestrationId parent = 4;
+    map<string, google.protobuf.StringValue> metadata = 5;
+}
+
+message ActivityResult {
+    OrchestrationId parent = 1;
+    int32 task_id = 2;
+    google.protobuf.StringValue result = 3;
+    TaskError error = 4;
+}
