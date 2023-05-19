@@ -99,6 +99,9 @@ partial class GrpcOrchestrationChannel
                 case { EventSent: { } m }:
                     item = new EventSent(id, timestamp, m.InstanceId, m.Name, m.Input);
                     return true;
+                case { Generic: { } m }:
+                    item = new GenericMessage(id, timestamp, m.Name, m.Data);
+                    return true;
                 default:
                     return this.TryRead(out item); // unknown event, move on to next one.
             }

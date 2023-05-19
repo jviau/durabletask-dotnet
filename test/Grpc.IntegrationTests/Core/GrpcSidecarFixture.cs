@@ -12,7 +12,7 @@ using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Microsoft.DurableTask.Grpc.Tests;
+namespace Microsoft.DurableTask.Grpc.Core.Tests;
 
 public sealed class GrpcSidecarFixture : IDisposable
 {

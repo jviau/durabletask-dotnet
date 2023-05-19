@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 using Microsoft.DurableTask.Client;
 
-namespace Microsoft.DurableTask.Grpc.Tests;
+namespace Microsoft.DurableTask.Grpc.Bulk.Tests;
 
 public class OrchestrationPatterns : IntegrationTestBase
 {

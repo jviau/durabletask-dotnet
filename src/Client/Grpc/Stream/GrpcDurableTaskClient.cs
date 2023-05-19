@@ -98,10 +98,33 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     }
 
     /// <inheritdoc/>
-    public override Task RaiseEventAsync(
+    public override async Task RaiseEventAsync(
         string instanceId, string eventName, object? eventPayload = null, CancellationToken cancellation = default)
     {
-        throw new NotImplementedException();
+        Check.NotNullOrEmpty(instanceId);
+        Check.NotNullOrEmpty(eventName);
+
+        P.RaiseEventRequest request = new()
+        {
+            InstanceId = instanceId,
+            Name = eventName,
+            Input = this.DataConverter.Serialize(eventPayload),
+        };
+
+        try
+        {
+            await this.client.RaiseOrchestrationEventAsync(request, cancellationToken: cancellation);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
+        {
+            throw new OperationCanceledException(
+                $"{nameof(this.GetInstanceAsync)} operation was canceled.", ex, cancellation);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        {
+            // what do?
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -147,10 +170,30 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     }
 
     /// <inheritdoc/>
-    public override Task TerminateInstanceAsync(
+    public override async Task TerminateInstanceAsync(
         string instanceId, object? output = null, CancellationToken cancellation = default)
     {
-        throw new NotImplementedException();
+        Check.NotNullOrEmpty(instanceId);
+        P.TerminateOrchestrationRequest request = new()
+        {
+            InstanceId = instanceId,
+            Reason = this.DataConverter.Serialize(output),
+        };
+
+        try
+        {
+            await this.client.TerminateOrchestrationAsync(request, cancellationToken: cancellation);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
+        {
+            throw new OperationCanceledException(
+                $"{nameof(this.GetInstanceAsync)} operation was canceled.", ex, cancellation);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        {
+            // what do?
+            throw;
+        }
     }
 
     /// <inheritdoc/>

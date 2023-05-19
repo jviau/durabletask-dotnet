@@ -5,7 +5,7 @@ using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Xunit.Abstractions;
 
-namespace Microsoft.DurableTask.Grpc.Tests;
+namespace Microsoft.DurableTask.Grpc.Core.Tests;
 
 /// <summary>
 /// Integration tests that are designed to exercise the error handling and retry functionality
@@ -131,7 +131,7 @@ public class OrchestrationErrorHandling : IntegrationTestBase
                 {
                     await ctx.CallActivityAsync("Foo", options: retryOptions);
                 })
-                .AddActivityFunc("Foo", (TaskActivityContext context) =>
+                .AddActivityFunc("Foo", (context) =>
                 {
                     actualNumberOfAttempts++;
                     throw new Exception(errorMessage);
@@ -191,7 +191,7 @@ public class OrchestrationErrorHandling : IntegrationTestBase
                 {
                     await ctx.CallActivityAsync("Foo", options: retryOptions);
                 })
-                .AddActivityFunc("Foo", (TaskActivityContext context) =>
+                .AddActivityFunc("Foo", (context) =>
                 {
                     actualNumberOfAttempts++;
                     throw new ApplicationException(errorMessage);

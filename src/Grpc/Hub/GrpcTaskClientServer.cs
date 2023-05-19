@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using DurableTask.Core;
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.DurableTask.Protobuf.Experimental;
 using C = DurableTask.Core;
@@ -145,5 +146,45 @@ public class GrpcTaskClientServer : DurableTaskClient.DurableTaskClientBase
 
         OrchestrationExpandDetail expand = OrchestrationExpandDetailExtensions.FromProto(request.Expand);
         return state.ToResponse(expand);
+    }
+
+    /// <inheritdoc/>
+    public override async Task<Empty> RaiseOrchestrationEvent(RaiseEventRequest request, ServerCallContext context)
+    {
+        Check.NotNull(request);
+        Check.NotNull(context);
+
+        if (request.InstanceId is null or "")
+        {
+            throw new RpcException(new(
+                StatusCode.InvalidArgument, $"Non null or empty instance ID must be supplied."));
+        }
+
+        TaskMessage message = new()
+        {
+            OrchestrationInstance = new() { InstanceId = request.InstanceId },
+            Event = new H.EventRaisedEvent(-1, request.Input) { Name = request.Name },
+        };
+
+        await this.client.SendTaskOrchestrationMessageAsync(message).WaitAsync(context.CancellationToken);
+        return new();
+    }
+
+    /// <inheritdoc/>
+    public override async Task<OrchestrationInfoResponse> TerminateOrchestration(
+        TerminateOrchestrationRequest request, ServerCallContext context)
+    {
+        Check.NotNull(request);
+        Check.NotNull(context);
+
+        if (request.InstanceId is null or "")
+        {
+            throw new RpcException(new(
+                StatusCode.InvalidArgument, $"Non null or empty instance ID must be supplied."));
+        }
+
+        string id = request.InstanceId;
+        await this.client.ForceTerminateTaskOrchestrationAsync(id, request.Reason);
+        return new();
     }
 }

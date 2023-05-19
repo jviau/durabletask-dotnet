@@ -6,7 +6,7 @@ using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Xunit.Abstractions;
 
-namespace Microsoft.DurableTask.Grpc.Tests;
+namespace Microsoft.DurableTask.Grpc.Core.Tests;
 
 public class PageableIntegrationTests : IntegrationTestBase
 {
@@ -41,7 +41,7 @@ public class PageableIntegrationTests : IntegrationTestBase
     {
         int pageSize = input?.PageSize ?? 3;
         Page<string> CreatePage(string? next)
-            => new (Enumerable.Range(0, pageSize).Select(x => $"item_{x}").ToList(), next);
+            => new(Enumerable.Range(0, pageSize).Select(x => $"item_{x}").ToList(), next);
         Page<string>? page = input?.Continuation switch
         {
             null => CreatePage("1"),

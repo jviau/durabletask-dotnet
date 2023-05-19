@@ -33,6 +33,16 @@ public abstract record WorkCompletedMessage(
     : OrchestrationMessage(Id, Timestamp);
 
 /// <summary>
+/// A generic message with an opaque name and payload.
+/// </summary>
+/// <param name="Id">The ID of the message.</param>
+/// <param name="Timestamp">The timestamp this message originally occured at.</param>
+/// <param name="Name">The name of the message.</param>
+/// <param name="Data">The payload of the message.</param>
+public record GenericMessage(int Id, DateTimeOffset Timestamp, string Name, string? Data)
+    : OrchestrationMessage(Id, Timestamp);
+
+/// <summary>
 /// The orchestrator has been started (or restarted in the case of a replay).
 /// </summary>
 /// <param name="Timestamp">The timestamp the replay has started at.</param>

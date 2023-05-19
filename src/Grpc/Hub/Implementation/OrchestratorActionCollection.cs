@@ -156,12 +156,31 @@ class OrchestratorActionCollection : ICollection<P.OrchestratorAction>
                     continueAsNew = true;
                     updatedState = null;
                     return;
+                case ExecutionTerminatedEvent e:
+                    // TODO: fill out FailureDetails?
+                    history = new ExecutionCompletedEvent(e.EventId, e.Input, OrchestrationStatus.Terminated);
+                    if (state.ParentInstance is not null)
+                    {
+                        ParentInstance p = state.ParentInstance;
+                        HistoryEvent completed = new SubOrchestrationInstanceFailedEvent(
+                                -1, p.TaskScheduleId, e.Input, null, null);
+
+                        newOrchestratorMessages ??= new List<TaskMessage>();
+                        newOrchestratorMessages.Add(new TaskMessage
+                        {
+                            Event = completed,
+                            OrchestrationInstance = p.OrchestrationInstance,
+                        });
+                    }
+
+                    break;
                 case ExecutionCompletedEvent e:
                     // NOTE: Failure details aren't being stored in the orchestration history, currently.
                     history = new ExecutionCompletedEvent(e.EventId, e.Result, e.OrchestrationStatus);
                     failureDetails = e.FailureDetails;
-                    if (state.ParentInstance is { } p)
+                    if (state.ParentInstance is not null)
                     {
+                        ParentInstance p = state.ParentInstance; // assigning via pattern matching 
                         HistoryEvent completed = e.OrchestrationStatus switch
                         {
                             OrchestrationStatus.Failed => new SubOrchestrationInstanceFailedEvent(

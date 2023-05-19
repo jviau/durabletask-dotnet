@@ -103,14 +103,13 @@ public class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase
                 new(StatusCode.NotFound, $"Orchestration with ID {start.InstanceId} is not available."));
         }
 
-        Task write = WriteEventsAsync(orchestration.OrchestrationRuntimeState!, responseStream, cancellation);
-        Task<OrchestratorActionCollection> read = ReadEventsAsync(requestStream, cancellation);
-
-        await Task.WhenAll(write, read);
-        OrchestratorActionCollection result = await read;
-
         try
         {
+            Task write = WriteEventsAsync(orchestration.OrchestrationRuntimeState!, responseStream, cancellation);
+            Task<OrchestratorActionCollection> read = ReadEventsAsync(requestStream, cancellation);
+
+            await Task.WhenAll(write, read);
+            OrchestratorActionCollection result = await read;
             await this.CompleteOrchestrationAsync(orchestration, result, cancellation);
         }
         catch

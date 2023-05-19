@@ -8,7 +8,7 @@ using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Xunit.Abstractions;
 
-namespace Microsoft.DurableTask.Grpc.Tests;
+namespace Microsoft.DurableTask.Grpc.Core.Tests;
 
 public class DurableTaskGrpcClientIntegrationTests : IntegrationTestBase
 {

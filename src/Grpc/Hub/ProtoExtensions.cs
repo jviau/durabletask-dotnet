@@ -176,6 +176,21 @@ static class ProtoExtensions
                     ScheduledId = e.TimerId,
                 };
                 break;
+            case EventSentEvent e:
+                message.EventSent = new()
+                {
+                    InstanceId = e.InstanceId,
+                    Name = e.Name,
+                    Input = e.Input,
+                };
+                break;
+            case EventRaisedEvent e:
+                message.EventRaised = new()
+                {
+                    Name = e.Name,
+                    Input = e.Input,
+                };
+                break;
             case GenericEvent e:
                 message.Generic = new()
                 {
@@ -184,7 +199,12 @@ static class ProtoExtensions
                 };
                 break;
             default:
-                return null;
+                message.Generic = new()
+                {
+                    // At the very least the client will use the timestamp from this.
+                    Name = history.EventType.ToString(),
+                };
+                break;
         }
 
         return message;

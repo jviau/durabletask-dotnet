@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 using Microsoft.DurableTask.Client;
 
-namespace Microsoft.DurableTask.Grpc.Stream.Tests;
+namespace Microsoft.DurableTask.Grpc.Core.Tests;
 
 public class OrchestrationPatterns : IntegrationTestBase
 {
@@ -314,14 +314,11 @@ public class OrchestrationPatterns : IntegrationTestBase
     [Fact]
     public async Task Termination()
     {
-        TaskCompletionSource<object?> source = new();
         TaskName orchestrationName = nameof(Termination);
         await using HostTestLifetime server = await this.StartWorkerAsync(b =>
         {
-            b.AddTasks(tasks => tasks.AddOrchestratorFunc(orchestrationName, async ctx =>
-            {
-                await ctx.CreateTimer(TimeSpan.FromDays(1), default);
-            }));
+            b.AddTasks(tasks => tasks.AddOrchestratorFunc(
+                orchestrationName, ctx => ctx.CreateTimer(TimeSpan.FromSeconds(3), CancellationToken.None)));
         });
 
         string instanceId = await server.Client.ScheduleNewOrchestrationInstanceAsync(orchestrationName);
@@ -329,7 +326,6 @@ public class OrchestrationPatterns : IntegrationTestBase
 
         var expectedOutput = new { quote = "I'll be back." };
         await server.Client.TerminateInstanceAsync(instanceId, expectedOutput);
-        source.SetResult(null);
 
         metadata = await server.Client.WaitForInstanceCompletionAsync(
             instanceId, getInputsAndOutputs: true, this.TimeoutToken);
