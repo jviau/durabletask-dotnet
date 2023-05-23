@@ -34,6 +34,7 @@ public sealed class GrpcSidecarFixture : IDisposable
             .ConfigureServices(services =>
             {
                 services.AddGrpc();
+                services.AddInMemoryOrchestrationService();
                 services.AddTaskHubGrpc();
             })
             .Configure(app =>

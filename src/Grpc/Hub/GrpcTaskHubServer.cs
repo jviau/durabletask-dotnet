@@ -9,7 +9,6 @@ using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.DurableTask.Protobuf.Experimental;
 using Microsoft.Extensions.Hosting;
-using Nito.AsyncEx;
 using C = DurableTask.Core;
 
 namespace Microsoft.DurableTask.Grpc.Hub;
@@ -155,7 +154,7 @@ public class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase
 
     static async Task WriteEventsAsync(
         OrchestrationRuntimeState start,
-        IAsyncStreamWriter<OrchestratorMessage> writer,
+        IServerStreamWriter<OrchestratorMessage> writer,
         CancellationToken cancellation)
     {
         foreach (HistoryEvent history in start.PastEvents)

@@ -12,7 +12,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
     <PackageReference Include="Microsoft.Azure.DurableTask.Core" Version="2.13.0" />
-    <PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
   </ItemGroup>
   
   <ItemGroup>

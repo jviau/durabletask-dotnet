@@ -180,7 +180,7 @@ class OrchestratorActionCollection : ICollection<P.OrchestratorAction>
                     failureDetails = e.FailureDetails;
                     if (state.ParentInstance is not null)
                     {
-                        ParentInstance p = state.ParentInstance; // assigning via pattern matching 
+                        ParentInstance p = state.ParentInstance; // assigning via pattern matching
                         HistoryEvent completed = e.OrchestrationStatus switch
                         {
                             OrchestrationStatus.Failed => new SubOrchestrationInstanceFailedEvent(

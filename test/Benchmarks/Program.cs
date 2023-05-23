@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
 using Microsoft.DurableTask;
 

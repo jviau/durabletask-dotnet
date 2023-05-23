@@ -71,6 +71,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grpc", "src\grpc\Core\Grpc.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grpc.Hub", "src\grpc\Hub\Grpc.Hub.csproj", "{19A7A53A-F22F-4361-90B7-0566174FDCB7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prototype", "samples\Prototype\Prototype.csproj", "{AF0F2E73-A0E7-4A56-B21B-4B458601D234}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -181,6 +183,10 @@ Global
 		{19A7A53A-F22F-4361-90B7-0566174FDCB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{19A7A53A-F22F-4361-90B7-0566174FDCB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{19A7A53A-F22F-4361-90B7-0566174FDCB7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF0F2E73-A0E7-4A56-B21B-4B458601D234}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF0F2E73-A0E7-4A56-B21B-4B458601D234}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF0F2E73-A0E7-4A56-B21B-4B458601D234}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF0F2E73-A0E7-4A56-B21B-4B458601D234}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -216,6 +222,7 @@ Global
 		{A5EAFA35-CD1D-4EB7-9246-7F9288009CC0} = {460078E5-498C-4659-B43E-96E27321742B}
 		{C967F0C2-EBDE-4660-923D-18D3288908C6} = {460078E5-498C-4659-B43E-96E27321742B}
 		{19A7A53A-F22F-4361-90B7-0566174FDCB7} = {460078E5-498C-4659-B43E-96E27321742B}
+		{AF0F2E73-A0E7-4A56-B21B-4B458601D234} = {EFF7632B-821E-4CFC-B4A0-ED4B24296B17}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AB41CB55-35EA-4986-A522-387AB3402E71}

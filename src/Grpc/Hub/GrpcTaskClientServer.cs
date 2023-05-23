@@ -105,10 +105,17 @@ public class GrpcTaskClientServer : DurableTaskClient.DurableTaskClientBase
             return terminal;
         }
 
-        Task<C.OrchestrationState> WaitForTerminalAsync(string instanceId, CancellationToken cancellation)
+        async Task<C.OrchestrationState> WaitForTerminalAsync(string instanceId, CancellationToken cancellation)
         {
-            return this.client.WaitForOrchestrationAsync(
-                instanceId, executionId: null, timeout: Timeout.InfiniteTimeSpan, cancellation);
+            while (true)
+            {
+                C.OrchestrationState state = await this.client.WaitForOrchestrationAsync(
+                    instanceId, executionId: null, timeout: TimeSpan.MaxValue, cancellation);
+                if (state is not null)
+                {
+                    return state;
+                }
+            }
         }
 
         async Task<C.OrchestrationState> WaitForStateAsync(
