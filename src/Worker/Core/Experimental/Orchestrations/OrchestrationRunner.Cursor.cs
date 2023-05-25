@@ -17,6 +17,7 @@ partial class OrchestrationRunner
         readonly ITaskOrchestrator orchestrator;
         readonly ExternalEventSource externalEvent;
         readonly ILogger logger;
+        readonly CancellationToken cancellation;
 
         ExecutionCompleted? pendingCompletion;
         bool preserveUnprocessedEvents;
@@ -28,13 +29,15 @@ partial class OrchestrationRunner
             OrchestrationWorkItem workItem,
             OrchestrationRunnerOptions options,
             ITaskOrchestrator orchestrator,
-            ILoggerFactory loggerFactory)
+            ILoggerFactory loggerFactory,
+            CancellationToken cancellation)
         {
             this.WorkItem = workItem;
             this.Options = options;
-            this.LoggerFactory = loggerFactory;
             this.orchestrator = orchestrator;
+            this.LoggerFactory = loggerFactory;
             this.logger = loggerFactory.CreateLogger<OrchestrationRunner>();
+            this.cancellation = cancellation;
             this.externalEvent = new(options.DataConverter);
         }
 
@@ -60,10 +63,15 @@ partial class OrchestrationRunner
         {
             try
             {
-                while (await this.Reader.WaitToReadAsync())
+                while (await this.Reader.WaitToReadAsync(this.cancellation))
                 {
                     while (this.Reader.TryRead(out OrchestrationMessage? message))
                     {
+                        if (!isOrchestratorThread)
+                        {
+
+                        }
+
                         this.logger.LogTrace("Received message of type {MessageType}", message.GetType());
                         this.HandleMessage(message);
                     }
@@ -77,11 +85,10 @@ partial class OrchestrationRunner
             catch (Exception ex)
             {
                 this.Writer.TryComplete(ex);
+                throw;
             }
-            finally
-            {
-                await this.WorkItem.ReleaseAsync();
-            }
+
+            this.Writer.TryComplete();
         }
 
         public void SetCustomStatus(object? status)
@@ -148,8 +155,7 @@ partial class OrchestrationRunner
 
             if (!this.WorkItem.IsReplaying)
             {
-                // TODO: cancellation?.
-                await this.Writer.WriteAsync(action.ToMessage(this.Converter));
+                await this.Writer.WriteAsync(action.ToMessage(this.Converter), this.cancellation);
             }
 
             return pending;
@@ -261,8 +267,8 @@ partial class OrchestrationRunner
             if (this.pendingCompletion is ContinueAsNew continueAsNew)
             {
                 // 1. ContinueAsNew - highest priority.
-                await this.Writer.WriteAsync(continueAsNew);
-                this.Writer.Complete();
+                await this.Writer.WriteAsync(continueAsNew, this.cancellation);
+                this.Writer.TryComplete();
                 return true;
             }
 
@@ -274,7 +280,7 @@ partial class OrchestrationRunner
                 {
                     if (ex is AbortWorkItemException)
                     {
-                        this.Writer.Complete(ex);
+                        this.Writer.TryComplete(ex);
                         return true;
                     }
 
@@ -294,16 +300,16 @@ partial class OrchestrationRunner
                         null);
                 }
 
-                await this.Writer.WriteAsync(completed);
-                this.Writer.Complete();
+                await this.Writer.WriteAsync(completed, this.cancellation);
+                this.Writer.TryComplete();
                 return true;
             }
 
             if (this.pendingCompletion is { } pending)
             {
                 // 3. All others.
-                await this.Writer.WriteAsync(pending);
-                this.Writer.Complete();
+                await this.Writer.WriteAsync(pending, this.cancellation);
+                this.Writer.TryComplete();
                 return true;
             }
 

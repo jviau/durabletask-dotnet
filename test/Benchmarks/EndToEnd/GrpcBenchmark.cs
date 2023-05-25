@@ -3,65 +3,84 @@
 
 using BenchmarkDotNet.Attributes;
 using DurableTask.Core;
-using Microsoft.AspNetCore.Hosting;
+using Grpc.Net.Client;
 using Microsoft.DurableTask.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
+[MaxIterationCount(30)]
 public abstract class GrpcBenchmark
 {
-    protected IWebHost HubHost { get; private set; } = null!;
-
     protected IHost WorkerHost { get; private set; } = null!;
 
     protected DurableTaskClient Client { get; private set; } = null!;
 
-    protected IOrchestrationServiceClient ServiceClient { get; private set; } = null!;
-
     protected CancellationToken ShutdownToken { get; private set; }
+
+    public IEnumerable<object[]> ScaleValues()
+    {
+        //yield return new object[] { 10, 5 };
+        //yield return new object[] { 100, 1 };
+        yield return new object[] { 100, 5 };
+    }
 
     [IterationCleanup]
     public void IterationCleanup()
     {
-        IOrchestrationServicePurgeClient purgeClient = (IOrchestrationServicePurgeClient)this.ServiceClient;
-        PurgeInstanceFilter filter = new(DateTime.MinValue, null, new[]
+        IEnumerable<OrchestrationRuntimeStatus> statuses = new[]
         {
-            OrchestrationStatus.Pending,
-            OrchestrationStatus.Running,
-            OrchestrationStatus.Terminated,
-            OrchestrationStatus.Suspended,
-            OrchestrationStatus.Failed,
-            OrchestrationStatus.Completed,
-            OrchestrationStatus.ContinuedAsNew,
-            OrchestrationStatus.Canceled,
-        });
+            OrchestrationRuntimeStatus.Pending,
+            OrchestrationRuntimeStatus.Running,
+            OrchestrationRuntimeStatus.Terminated,
+            OrchestrationRuntimeStatus.Suspended,
+            OrchestrationRuntimeStatus.Failed,
+            OrchestrationRuntimeStatus.Completed,
+        };
 
-        purgeClient.PurgeInstanceStateAsync(filter).GetAwaiter().GetResult();
+        PurgeInstancesFilter filter = new(CreatedFrom: DateTimeOffset.MinValue, Statuses: statuses);
+        this.Client.PurgeAllInstancesAsync(filter, this.ShutdownToken).GetAwaiter().GetResult();
     }
 
-    protected async Task SetupAsync(IWebHost hub, IHost worker)
+    protected async Task SetupCoreAsync(GrpcChannel channel)
     {
-        this.HubHost = hub;
-        this.WorkerHost = worker;
+        this.WorkerHost = this.CreateWorkerHost(channel);
         this.Client = this.WorkerHost.Services.GetRequiredService<DurableTaskClient>();
-        this.ServiceClient = this.HubHost.Services.GetRequiredService<IOrchestrationServiceClient>();
         this.ShutdownToken = this.WorkerHost.Services.GetRequiredService<IHostApplicationLifetime>()
             .ApplicationStopping;
-        IOrchestrationService os = this.HubHost.Services.GetRequiredService<IOrchestrationService>();
 
-        await this.HubHost.StartAsync();
         await this.WorkerHost.StartAsync();
-        await os.CreateIfNotExistsAsync();
     }
 
-    [GlobalCleanup]
-    public async Task CleanupAsync()
+    protected async Task CleanupCoreAsync()
     {
         await this.WorkerHost.StopAsync();
-        await this.HubHost.StopAsync();
         this.WorkerHost.Dispose();
-        this.HubHost.Dispose();
     }
+
+    protected async Task RunScaleAsync(int count, int depth)
+    {
+        async Task RunOrchestrationAsync()
+        {
+            await Task.Yield();
+            string id = await this.Client.ScheduleNewOrchestrationInstanceAsync(
+                nameof(TestOrchestration), new TestInput(depth, "test-value"));
+            OrchestrationMetadata data = await this.Client.WaitForInstanceCompletionAsync(id, this.ShutdownToken);
+            if (data.RuntimeStatus != OrchestrationRuntimeStatus.Completed)
+            {
+                throw new InvalidOperationException($"Unexpected status of {data.RuntimeStatus}.");
+            }
+        }
+
+        Task[] tasks = new Task[count];
+        for (int i = 0; i < count; i++)
+        {
+            tasks[i] = RunOrchestrationAsync();
+        }
+
+        await Task.WhenAll(tasks).WaitAsync(this.ShutdownToken);
+    }
+
+    protected abstract IHost CreateWorkerHost(GrpcChannel channel);
 }

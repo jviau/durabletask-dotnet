@@ -8,6 +8,7 @@ using Microsoft.DurableTask.Tests.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 using Microsoft.DurableTask.Client;
+using Grpc.Net.Client;
 
 namespace Microsoft.DurableTask.Grpc.Stream.Tests;
 

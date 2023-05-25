@@ -66,14 +66,6 @@ message RaiseEventRequest {
     google.protobuf.StringValue input = 3;
 }
 
-// Wait for an orchestration to reach one of the provided states.
-// No states provided will default to any terminal state.
-message WaitForOrchestrationRequest {
-    string instance_id = 1;
-    repeated OrchestrationState states = 2;
-    repeated ExpandOrchestrationDetail expand = 3;
-}
-
 // Suspend an orchestration, pausing execution until a resume call is performed.
 // Does nothing if the orchestration is already terminal or suspended.
 message SuspedOrchestrationRequest {
@@ -114,7 +106,7 @@ message QueryOrchestrationsResponse {
 // Purge orchestrations from the hub, cleaning them up from whatever persistance the hub uses.
 message PurgeOrchestrationsRequest {
     oneof request {
-        string instance_id = 1; // purge a singular orchestration.
+        google.protobuf.StringValue instance_id = 1; // purge a singular orchestration.
         PurgeFilter filter = 2; // purge a range of orchestrations.
     }
 }
@@ -142,9 +134,6 @@ service DurableTaskClient {
     // Monitor an orchestration, receiving status updates when this change.
     // TODO: give a more efficient return type. Including only what has changed.
     rpc MonitorOrchestration (GetOrchestrationRequest) returns (stream OrchestrationInfoResponse);
-
-    // Wait for an orchestration to reach a specific state.
-    rpc WaitForOrchestrationState (WaitForOrchestrationRequest) returns (OrchestrationInfoResponse);
 
     // Get info on multiple orchestrations.
     rpc QueryOrchestrations (QueryOrchestrationsRequest) returns (QueryOrchestrationsResponse);

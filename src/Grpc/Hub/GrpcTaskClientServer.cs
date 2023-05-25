@@ -7,7 +7,6 @@ using Grpc.Core;
 using Microsoft.DurableTask.Protobuf.Experimental;
 using C = DurableTask.Core;
 using H = DurableTask.Core.History;
-using P = Microsoft.DurableTask.Protobuf.Experimental;
 
 namespace Microsoft.DurableTask.Grpc.Hub;
 
@@ -74,88 +73,6 @@ public class GrpcTaskClientServer : DurableTaskClient.DurableTaskClientBase
     }
 
     /// <inheritdoc/>
-    public override async Task<OrchestrationInfoResponse> WaitForOrchestrationState(
-        WaitForOrchestrationRequest request, ServerCallContext context)
-    {
-        Check.NotNull(request);
-        Check.NotNull(context);
-
-        static bool BuildStates(ICollection<P.OrchestrationState> input, out HashSet<C.OrchestrationStatus>? output)
-        {
-            if (input.Count == 0)
-            {
-                output = null;
-                return true;
-            }
-
-            bool terminal = true;
-            HashSet<C.OrchestrationStatus>? states = null;
-            foreach (P.OrchestrationState state in input)
-            {
-                if (!state.IsTerminal())
-                {
-                    terminal = false;
-                }
-
-                states ??= new HashSet<C.OrchestrationStatus>();
-                states.Add(state.Convert());
-            }
-
-            output = states;
-            return terminal;
-        }
-
-        async Task<C.OrchestrationState> WaitForTerminalAsync(string instanceId, CancellationToken cancellation)
-        {
-            while (true)
-            {
-                C.OrchestrationState state = await this.client.WaitForOrchestrationAsync(
-                    instanceId, executionId: null, timeout: TimeSpan.MaxValue, cancellation);
-                if (state is not null)
-                {
-                    return state;
-                }
-            }
-        }
-
-        async Task<C.OrchestrationState> WaitForStateAsync(
-            string instanceId, HashSet<C.OrchestrationStatus> states, CancellationToken cancellation)
-        {
-            while (true)
-            {
-                C.OrchestrationState state = await this.client.GetOrchestrationStateAsync(
-                    instanceId, executionId: null);
-
-                // If state is not null and is either terminal or one of our desired states we will return.
-                // We always check for terminal as it will never reach the desired stat.
-                if (state != null && (state.OrchestrationStatus.IsTerminal()
-                    || states.Contains(state.OrchestrationStatus)))
-                {
-                    return state;
-                }
-
-                // TODO: Backoff strategy if we're delaying for a long time.
-                // The cancellation token is what will break us out of this loop if the orchestration
-                // never leaves the "Pending" state.
-                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellation);
-            }
-        }
-
-        C.OrchestrationState? state;
-        if (BuildStates(request.States, out HashSet<C.OrchestrationStatus>? target))
-        {
-            state = await WaitForTerminalAsync(request.InstanceId, context.CancellationToken);
-        }
-        else
-        {
-            state = await WaitForStateAsync(request.InstanceId, target!, context.CancellationToken);
-        }
-
-        OrchestrationExpandDetail expand = OrchestrationExpandDetailExtensions.FromProto(request.Expand);
-        return state.ToResponse(expand);
-    }
-
-    /// <inheritdoc/>
     public override async Task<Empty> RaiseOrchestrationEvent(RaiseEventRequest request, ServerCallContext context)
     {
         Check.NotNull(request);
@@ -173,7 +90,7 @@ public class GrpcTaskClientServer : DurableTaskClient.DurableTaskClientBase
             Event = new H.EventRaisedEvent(-1, request.Input) { Name = request.Name },
         };
 
-        await this.client.SendTaskOrchestrationMessageAsync(message).WaitAsync(context.CancellationToken);
+        await this.client.SendTaskOrchestrationMessageAsync(message);
         return new();
     }
 
@@ -193,5 +110,33 @@ public class GrpcTaskClientServer : DurableTaskClient.DurableTaskClientBase
         string id = request.InstanceId;
         await this.client.ForceTerminateTaskOrchestrationAsync(id, request.Reason);
         return new();
+    }
+
+    /// <inheritdoc/>
+    public override async Task<PurgeOrchestrationsResponse> PurgeOrchestrations(
+        PurgeOrchestrationsRequest request, ServerCallContext context)
+    {
+        Check.NotNull(request);
+        Check.NotNull(context);
+
+        static PurgeInstanceFilter Convert(PurgeFilter filter)
+        {
+            IEnumerable<C.OrchestrationStatus>? statuses = filter.IncludeStates?.Select(x => x.Convert()).ToList();
+            return new(filter.CreatedFrom?.ToDateTime() ?? DateTime.MinValue, filter.CreatedTo?.ToDateTime(), statuses);
+        }
+
+        IOrchestrationServicePurgeClient purgeClient = (IOrchestrationServicePurgeClient)this.client;
+        Task<PurgeResult> task = request switch
+        {
+            { Filter: { } filter } => purgeClient.PurgeInstanceStateAsync(Convert(filter)),
+            { InstanceId: { } id } => purgeClient.PurgeInstanceStateAsync(id),
+        };
+
+        PurgeResult result = await task;
+        return new PurgeOrchestrationsResponse()
+        {
+            PurgedCount = result.DeletedInstanceCount,
+            ContinuationToken = null,
+        };
     }
 }

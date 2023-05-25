@@ -48,6 +48,7 @@ public abstract class OrchestrationWorkItem : WorkItem
     /// <summary>
     /// Signals this orchestration has finished.
     /// </summary>
+    /// <param name="cancellation">The cancellation token.</param>
     /// <returns>A task that represents the releasing of this orchestration.</returns>
-    public virtual Task ReleaseAsync() => Task.CompletedTask;
+    public virtual Task ReleaseAsync(CancellationToken cancellation = default) => Task.CompletedTask;
 }

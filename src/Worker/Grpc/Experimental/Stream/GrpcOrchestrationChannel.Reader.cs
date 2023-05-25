@@ -126,14 +126,22 @@ partial class GrpcOrchestrationChannel
 
         async Task ReadEventsAsync()
         {
-            await foreach (P.OrchestratorMessage? item in this.stream.ReadAllAsync(default))
+            try
             {
-                if (item is null)
+                await foreach (P.OrchestratorMessage? item in this.stream.ReadAllAsync(default))
                 {
-                    continue;
-                }
+                    if (item is null)
+                    {
+                        continue;
+                    }
 
-                await this.readBuffer.Writer.WriteAsync(item);
+                    await this.readBuffer.Writer.WriteAsync(item);
+                }
+            }
+            catch (Exception ex)
+            {
+                this.readBuffer.Writer.TryComplete(ex);
+                throw;
             }
         }
     }

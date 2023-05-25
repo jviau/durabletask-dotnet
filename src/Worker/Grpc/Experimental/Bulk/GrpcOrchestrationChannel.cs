@@ -52,15 +52,16 @@ partial class GrpcOrchestrationChannel : Channel<OrchestrationMessage>
     /// <summary>
     /// Flushes the response message to the gRPC side car.
     /// </summary>
+    /// <param name="cancellation">The cancellation token.</param>
     /// <returns>A task that represents the call to the gRPC side car.</returns>
-    public async Task FlushAsync()
+    public async Task FlushAsync(CancellationToken cancellation)
     {
         if (this.Abort)
         {
             return;
         }
 
-        await this.sidecar.CompleteOrchestratorTaskAsync(this.response);
+        await this.sidecar.CompleteOrchestratorTaskAsync(this.response, cancellationToken: cancellation);
     }
 
     static OrchestrationMessage ToMessage(P.HistoryEvent e)

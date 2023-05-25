@@ -36,7 +36,7 @@ public partial class GrpcWorkItemChannel
                         request, cancellationToken: cancellation);
                     await this.ProcessWorkItemsAsync(writer, stream, cancellation);
                 }
-                catch (RpcException) when (cancellation.IsCancellationRequested)
+                catch (Exception) when (cancellation.IsCancellationRequested)
                 {
                     // Worker is shutting down - let the method exit gracefully
                     break;

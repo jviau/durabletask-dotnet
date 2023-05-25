@@ -8,8 +8,8 @@
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" Version="2.53.0" />
     <PackageReference Include="BenchmarkDotNet" Version="0.13.5" />
-    <PackageReference Include="Microsoft.Azure.DurableTask.AzureStorage" Version="1.13.6" />
-    <PackageReference Include="Microsoft.DurableTask.Sidecar" Version="0.3.0" />
+    <PackageReference Include="Microsoft.Azure.DurableTask.AzureStorage" Version="1.13.7" />
+    <PackageReference Include="Microsoft.DurableTask.Sidecar" Version="1.1.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
   </ItemGroup>
 
@@ -17,6 +17,7 @@
     <ProjectReference Include="$(SrcRoot)Client/Core/Client.csproj" />
     <ProjectReference Include="$(SrcRoot)Client/Grpc/Client.Grpc.csproj" />
     <ProjectReference Include="$(SrcRoot)Grpc/Hub/Grpc.Hub.csproj" />
+    <ProjectReference Include="$(SrcRoot)Grpc/App/Grpc.App.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Core/Worker.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Grpc/Worker.Grpc.csproj" />
   </ItemGroup>

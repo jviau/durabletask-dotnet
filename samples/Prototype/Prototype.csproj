@@ -5,9 +5,11 @@
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>Microsoft.DurableTask.Prototype</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
     <PackageReference Include="Grpc.AspNetCore" Version="2.53.0" />
     <PackageReference Include="Microsoft.Azure.DurableTask.AzureStorage" Version="1.13.6" />
     <PackageReference Include="Microsoft.DurableTask.Sidecar" Version="0.3.0" />

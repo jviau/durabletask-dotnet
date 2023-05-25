@@ -141,8 +141,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         }
         catch (RpcException e) when (e.StatusCode == StatusCode.Cancelled)
         {
-            throw new OperationCanceledException(
-                $"The {nameof(this.SuspendInstanceAsync)} operation was canceled.", e, cancellation);
+            throw new OperationCanceledException(null, e, cancellation);
         }
     }
 
@@ -162,8 +161,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         }
         catch (RpcException e) when (e.StatusCode == StatusCode.Cancelled)
         {
-            throw new OperationCanceledException(
-                $"The {nameof(this.ResumeInstanceAsync)} operation was canceled.", e, cancellation);
+            throw new OperationCanceledException(null, e, cancellation);
         }
     }
 
@@ -235,59 +233,48 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
             }
             catch (RpcException e) when (e.StatusCode == StatusCode.Cancelled)
             {
-                throw new OperationCanceledException(
-                    $"The {nameof(this.GetInstancesAsync)} operation was canceled.", e, cancellation);
+                throw new OperationCanceledException(null, e, cancellation);
             }
         });
-    }
-
-    /// <inheritdoc/>
-    public override async Task<OrchestrationMetadata> WaitForInstanceStartAsync(
-        string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
-    {
-        this.logger.WaitingForInstanceStart(instanceId, getInputsAndOutputs);
-
-        P.GetInstanceRequest request = new()
-        {
-            InstanceId = instanceId,
-            GetInputsAndOutputs = getInputsAndOutputs,
-        };
-
-        try
-        {
-            P.GetInstanceResponse response = await this.sidecarClient.WaitForInstanceStartAsync(
-                request, cancellationToken: cancellation);
-            return this.CreateMetadata(response.OrchestrationState, getInputsAndOutputs);
-        }
-        catch (RpcException e) when (e.StatusCode == StatusCode.Cancelled)
-        {
-            throw new OperationCanceledException(
-                $"The {nameof(this.WaitForInstanceStartAsync)} operation was canceled.", e, cancellation);
-        }
     }
 
     /// <inheritdoc/>
     public override async Task<OrchestrationMetadata> WaitForInstanceCompletionAsync(
         string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
     {
-        this.logger.WaitingForInstanceCompletion(instanceId, getInputsAndOutputs);
-
-        P.GetInstanceRequest request = new()
+        Check.NotNullOrEmpty(instanceId);
+        while (true)
         {
-            InstanceId = instanceId,
-            GetInputsAndOutputs = getInputsAndOutputs,
-        };
+            OrchestrationMetadata? metadata = await this.GetInstanceAsync(
+                instanceId, getInputsAndOutputs, cancellation)
+                ?? throw new InvalidOperationException("Not found");
 
-        try
-        {
-            P.GetInstanceResponse response = await this.sidecarClient.WaitForInstanceCompletionAsync(
-                request, cancellationToken: cancellation);
-            return this.CreateMetadata(response.OrchestrationState, getInputsAndOutputs);
+            if (metadata.IsCompleted)
+            {
+                return metadata;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
         }
-        catch (RpcException e) when (e.StatusCode == StatusCode.Cancelled)
+    }
+
+    /// <inheritdoc/>
+    public override async Task<OrchestrationMetadata> WaitForInstanceStartAsync(
+        string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
+    {
+        Check.NotNullOrEmpty(instanceId);
+        while (true)
         {
-            throw new OperationCanceledException(
-                $"The {nameof(this.WaitForInstanceCompletionAsync)} operation was canceled.", e, cancellation);
+            OrchestrationMetadata? metadata = await this.GetInstanceAsync(
+                instanceId, getInputsAndOutputs, cancellation)
+                ?? throw new InvalidOperationException("Not found");
+
+            if (metadata.RuntimeStatus != OrchestrationRuntimeStatus.Pending)
+            {
+                return metadata;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
         }
     }
 
@@ -371,8 +358,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         }
         catch (RpcException e) when (e.StatusCode == StatusCode.Cancelled)
         {
-            throw new OperationCanceledException(
-                $"The {nameof(this.PurgeAllInstancesAsync)} operation was canceled.", e, cancellation);
+            throw new OperationCanceledException(null, e, cancellation);
         }
     }
 

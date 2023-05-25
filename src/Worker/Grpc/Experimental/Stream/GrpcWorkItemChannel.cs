@@ -13,8 +13,8 @@ namespace Microsoft.DurableTask.Worker.Grpc.Stream;
 /// </summary>
 public partial class GrpcWorkItemChannel : BackgroundService
 {
-    readonly Channel<WorkItem> channel = System.Threading.Channels.Channel.CreateUnbounded<WorkItem>(
-        new() { SingleReader = true, SingleWriter = true });
+    readonly Channel<WorkItem> channel = System.Threading.Channels.Channel.CreateBounded<WorkItem>(
+        new BoundedChannelOptions(100) { SingleReader = true, SingleWriter = true });
 
     readonly DurableTaskHubClient client;
     readonly ILogger logger;
@@ -36,9 +36,19 @@ public partial class GrpcWorkItemChannel : BackgroundService
     public ChannelReader<WorkItem> Reader => this.channel.Reader;
 
     /// <inheritdoc/>
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Listener listener = new(this.client, this.logger);
-        return listener.ExecuteAsync(this.channel.Writer, stoppingToken);
+        try
+        {
+            Listener listener = new(this.client, this.logger);
+            await listener.ExecuteAsync(this.channel.Writer, stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            this.channel.Writer.TryComplete(ex);
+            throw;
+        }
+
+        this.channel.Writer.TryComplete();
     }
 }

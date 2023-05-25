@@ -75,8 +75,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
         {
-            throw new OperationCanceledException(
-                $"{nameof(this.GetInstanceAsync)} operation was canceled.", ex, cancellation);
+            throw new OperationCanceledException(null, ex, cancellation);
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
         {
@@ -88,13 +87,29 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     public override Task<PurgeResult> PurgeAllInstancesAsync(
         PurgeInstancesFilter filter, CancellationToken cancellation = default)
     {
-        throw new NotImplementedException();
+        Check.NotNull(filter);
+        P.PurgeOrchestrationsRequest request = new()
+        {
+            Filter = new()
+            {
+                CreatedFrom = filter.CreatedFrom?.ToTimestamp(),
+                CreatedTo = filter.CreatedTo?.ToTimestamp(),
+            },
+        };
+
+        if (filter.Statuses is { } statuses)
+        {
+            request.Filter.IncludeStates.AddRange(statuses.Select(ToGrpc));
+        }
+
+        return this.PurgeCoreAsync(request, cancellation);
     }
 
     /// <inheritdoc/>
     public override Task<PurgeResult> PurgeInstanceAsync(string instanceId, CancellationToken cancellation = default)
     {
-        throw new NotImplementedException();
+        Check.NotNullOrEmpty(instanceId);
+        return this.PurgeCoreAsync(new P.PurgeOrchestrationsRequest { InstanceId = instanceId }, cancellation);
     }
 
     /// <inheritdoc/>
@@ -117,8 +132,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
         {
-            throw new OperationCanceledException(
-                $"{nameof(this.GetInstanceAsync)} operation was canceled.", ex, cancellation);
+            throw new OperationCanceledException(null, ex, cancellation);
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
         {
@@ -186,8 +200,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
         {
-            throw new OperationCanceledException(
-                $"{nameof(this.GetInstanceAsync)} operation was canceled.", ex, cancellation);
+            throw new OperationCanceledException(null, ex, cancellation);
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
         {
@@ -201,23 +214,18 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
     {
         Check.NotNullOrEmpty(instanceId);
-        P.WaitForOrchestrationRequest request = CreateWaitRequest(instanceId, getInputsAndOutputs);
+        while (true)
+        {
+            OrchestrationMetadata? metadata = await this.GetInstanceAsync(
+                instanceId, getInputsAndOutputs, cancellation)
+                ?? throw new InvalidOperationException("Not found");
 
-        try
-        {
-            P.OrchestrationInfoResponse response = await this.client.WaitForOrchestrationStateAsync(
-                request, cancellationToken: cancellation);
-            return this.CreateMetadata(response, getInputsAndOutputs);
-        }
-        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
-        {
-            throw new OperationCanceledException(
-                $"{nameof(this.GetInstanceAsync)} operation was canceled.", ex, cancellation);
-        }
-        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
-        {
-            // what do?
-            throw;
+            if (metadata.IsCompleted)
+            {
+                return metadata;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
         }
     }
 
@@ -226,24 +234,18 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
     {
         Check.NotNullOrEmpty(instanceId);
-        P.WaitForOrchestrationRequest request = CreateWaitRequest(
-            instanceId, getInputsAndOutputs, P.OrchestrationState.Running);
+        while (true)
+        {
+            OrchestrationMetadata? metadata = await this.GetInstanceAsync(
+                instanceId, getInputsAndOutputs, cancellation)
+                ?? throw new InvalidOperationException("Not found");
 
-        try
-        {
-            P.OrchestrationInfoResponse response = await this.client.WaitForOrchestrationStateAsync(
-                request, cancellationToken: cancellation);
-            return this.CreateMetadata(response, getInputsAndOutputs);
-        }
-        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
-        {
-            throw new OperationCanceledException(
-                $"{nameof(this.GetInstanceAsync)} operation was canceled.", ex, cancellation);
-        }
-        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
-        {
-            // what do?
-            throw;
+            if (metadata.RuntimeStatus != OrchestrationRuntimeStatus.Pending)
+            {
+                return metadata;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
         }
     }
 
@@ -296,20 +298,6 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         return request;
     }
 
-    static P.WaitForOrchestrationRequest CreateWaitRequest(
-        string instanceId, bool includeInputsAndOutputs, params P.OrchestrationState[] states)
-    {
-        P.WaitForOrchestrationRequest request = new() { InstanceId = instanceId };
-        if (includeInputsAndOutputs)
-        {
-            request.Expand.Add(P.ExpandOrchestrationDetail.Input);
-            request.Expand.Add(P.ExpandOrchestrationDetail.Output);
-        }
-
-        request.States.AddRange(states);
-        return request;
-    }
-
     static bool IsTerminal(P.OrchestrationInfoResponse response)
     {
         return response.Status.Status
@@ -320,6 +308,37 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     static bool HasStarted(P.OrchestrationInfoResponse response)
     {
         return response.Status.Status is not P.OrchestrationState.Pending;
+    }
+
+    static P.OrchestrationState ToGrpc(OrchestrationRuntimeStatus status)
+    {
+#pragma warning disable 0618 // Referencing Obsolete member. This is intention as we are only converting it.
+        return status switch
+        {
+            OrchestrationRuntimeStatus.Canceled => P.OrchestrationState.Canceled,
+            OrchestrationRuntimeStatus.Completed => P.OrchestrationState.Completed,
+            OrchestrationRuntimeStatus.Failed => P.OrchestrationState.Failed,
+            OrchestrationRuntimeStatus.Pending => P.OrchestrationState.Pending,
+            OrchestrationRuntimeStatus.Running => P.OrchestrationState.Running,
+            OrchestrationRuntimeStatus.Terminated => P.OrchestrationState.Terminated,
+            OrchestrationRuntimeStatus.Suspended => P.OrchestrationState.Suspended,
+            _ => P.OrchestrationState.Unspecified,
+        };
+#pragma warning restore 0618 // Referencing Obsolete member.
+    }
+
+    async Task<PurgeResult> PurgeCoreAsync(P.PurgeOrchestrationsRequest request, CancellationToken cancellation)
+    {
+        try
+        {
+            P.PurgeOrchestrationsResponse response = await this.client.PurgeOrchestrationsAsync(
+                request, cancellationToken: cancellation);
+            return new PurgeResult(response.PurgedCount);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
+        {
+            throw new OperationCanceledException(null, ex, cancellation);
+        }
     }
 
     OrchestrationMetadata CreateMetadata(P.OrchestrationInfoResponse state, bool includeInputsAndOutputs)

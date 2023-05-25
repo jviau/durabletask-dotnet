@@ -17,15 +17,17 @@ namespace Microsoft.DurableTask.Grpc.Hub;
 /// Implementation of DurableTaskHubBase. If registered to a service container, this <b>must</b> be a singleton. Or at
 /// least the same instance must be shared for connections from the same client.
 /// </summary>
-public class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase
+public sealed class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase, IAsyncDisposable
 {
-    readonly CancellationToken shutdownToken;
+    readonly object sync = new();
+    readonly CancellationTokenSource cts;
     readonly IOrchestrationService orchestrationService;
     readonly ConcurrentDictionary<string, TaskOrchestrationWorkItem> pendingOrchestrations = new();
     readonly ConcurrentDictionary<string, TaskActivityWorkItem> pendingActivities = new();
     readonly AsyncManualResetEvent readersAvailable = new(set: false);
     readonly Channel<WorkItem> workQueue = Channel.CreateBounded<WorkItem>(100);
 
+    TaskCompletionSource? disposal;
     int readers;
 
     /// <summary>
@@ -38,9 +40,78 @@ public class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase
         Check.NotNull(lifetime);
         Check.NotNull(orchestrationService);
 
-        this.shutdownToken = lifetime.ApplicationStopping;
+        this.cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping);
         this.orchestrationService = orchestrationService;
         _ = Task.Factory.StartNew(this.DequeueLoopAsync);
+    }
+
+    CancellationToken ShutdownToken => this.cts.Token;
+
+    /// <inheritdoc/>
+    public ValueTask DisposeAsync()
+    {
+        async Task DisposeCoreAsync()
+        {
+            try
+            {
+                foreach (string key in this.pendingOrchestrations.Keys)
+                {
+                    try
+                    {
+                        if (this.pendingOrchestrations.TryRemove(key, out TaskOrchestrationWorkItem? item))
+                        {
+                            await this.orchestrationService.AbandonTaskOrchestrationWorkItemAsync(item);
+                            await this.orchestrationService.ReleaseTaskOrchestrationWorkItemAsync(item);
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                foreach (string key in this.pendingActivities.Keys)
+                {
+                    try
+                    {
+                        if (this.pendingActivities.TryRemove(key, out TaskActivityWorkItem? item))
+                        {
+                            await this.orchestrationService.AbandonTaskActivityWorkItemAsync(item);
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            finally
+            {
+                this.disposal.TrySetResult();
+            }
+        }
+
+        bool dispose = false;
+        lock (this.sync)
+        {
+            if (this.disposal is null)
+            {
+                dispose = true;
+
+                if (!this.cts.IsCancellationRequested)
+                {
+                    this.cts.Cancel();
+                }
+
+                this.disposal = new();
+            }
+        }
+
+        this.cts.Dispose();
+        if (dispose)
+        {
+            return new(DisposeCoreAsync());
+        }
+
+        return new(this.disposal.Task);
     }
 
     /// <inheritdoc/>
@@ -58,11 +129,16 @@ public class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase
                 this.readersAvailable.Set();
             }
 
-            CancellationToken cancellation = context.CancellationToken;
-            await foreach (WorkItem item in this.workQueue.Reader.ReadAllAsync(cancellation))
+            using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(
+                this.cts.Token, context.CancellationToken);
+            await foreach (WorkItem item in this.workQueue.Reader.ReadAllAsync(cts.Token))
             {
-                await responseStream.WriteAsync(item);
+                await responseStream.WriteAsync(item, cts.Token);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // client disconnected
         }
         finally
         {
@@ -85,39 +161,46 @@ public class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase
 
         CancellationToken cancellation = context.CancellationToken;
 
-        // Clients must first send a message indicating which orchestration they want to stream.
-        if (!await requestStream.MoveNext(cancellation))
-        {
-            return;
-        }
-
-        if (requestStream.Current is not { Start: { } start })
-        {
-            throw new RpcException(new(StatusCode.InvalidArgument, "Callers must start with a StartStreamEvent."));
-        }
-
-        if (!this.pendingOrchestrations.TryRemove(start.InstanceId, out TaskOrchestrationWorkItem? orchestration))
-        {
-            throw new RpcException(
-                new(StatusCode.NotFound, $"Orchestration with ID {start.InstanceId} is not available."));
-        }
-
         try
         {
-            Task write = WriteEventsAsync(orchestration.OrchestrationRuntimeState!, responseStream, cancellation);
-            Task<OrchestratorActionCollection> read = ReadEventsAsync(requestStream, cancellation);
+            // Clients must first send a message indicating which orchestration they want to stream.
+            if (!await requestStream.MoveNext(cancellation))
+            {
+                return;
+            }
 
-            await Task.WhenAll(write, read);
-            OrchestratorActionCollection result = await read;
-            await this.CompleteOrchestrationAsync(orchestration, result, cancellation);
+            if (requestStream.Current is not { Start: { } start })
+            {
+                throw new RpcException(new(StatusCode.InvalidArgument, "Callers must start with a StartStreamEvent."));
+            }
+
+            if (!this.pendingOrchestrations.TryRemove(start.InstanceId, out TaskOrchestrationWorkItem? orchestration))
+            {
+                throw new RpcException(
+                    new(StatusCode.NotFound, $"Orchestration with ID {start.InstanceId} is not available."));
+            }
+
+            try
+            {
+                Task write = WriteEventsAsync(orchestration.OrchestrationRuntimeState!, responseStream, cancellation);
+                Task<OrchestratorActionCollection> read = ReadEventsAsync(requestStream, cancellation);
+
+                await Task.WhenAll(write, read);
+                OrchestratorActionCollection result = await read;
+                await this.CompleteOrchestrationAsync(orchestration, result, cancellation);
+            }
+            catch
+            {
+                await this.orchestrationService.AbandonTaskOrchestrationWorkItemAsync(orchestration);
+            }
+            finally
+            {
+                await this.orchestrationService.ReleaseTaskOrchestrationWorkItemAsync(orchestration);
+            }
         }
-        catch
+        catch (OperationCanceledException)
         {
-            await this.orchestrationService.AbandonTaskOrchestrationWorkItemAsync(orchestration);
-        }
-        finally
-        {
-            await this.orchestrationService.ReleaseTaskOrchestrationWorkItemAsync(orchestration);
+            // client disconnected
         }
     }
 
@@ -253,20 +336,35 @@ public class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase
 
     async Task DequeueLoopAsync()
     {
-        await this.readersAvailable.WaitAsync(this.shutdownToken);
-        await this.orchestrationService.StartAsync();
-        await Task.WhenAll(
-            this.DequeueActivitiesAsync(this.shutdownToken),
-            this.DequeueOrchestrationsAsync(this.shutdownToken));
+        try
+        {
+            await this.readersAvailable.WaitAsync(this.ShutdownToken);
+            await this.orchestrationService.StartAsync();
+            await Task.WhenAll(
+                this.DequeueActivitiesAsync(this.ShutdownToken),
+                this.DequeueOrchestrationsAsync(this.ShutdownToken));
+        }
+        catch (Exception ex)
+        {
+            this.workQueue.Writer.TryComplete(ex);
+            throw;
+        }
+
+        this.workQueue.Writer.TryComplete();
     }
 
     async Task DequeueActivitiesAsync(CancellationToken cancellation)
     {
-        while (!cancellation.IsCancellationRequested)
+        while (await this.workQueue.Writer.WaitToWriteAsync(cancellation))
         {
             await this.readersAvailable.WaitAsync(cancellation);
             TaskActivityWorkItem activity = await this.orchestrationService
                 .LockNextTaskActivityWorkItem(Timeout.InfiniteTimeSpan, cancellation);
+
+            if (activity is null)
+            {
+                continue;
+            }
 
             TaskScheduledEvent @event = (TaskScheduledEvent)activity.TaskMessage.Event;
 
@@ -300,17 +398,23 @@ public class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase
             {
                 // swallow errors.
                 this.pendingActivities.TryRemove(key, out _);
+                await this.orchestrationService.AbandonTaskActivityWorkItemAsync(activity);
             }
         }
     }
 
     async Task DequeueOrchestrationsAsync(CancellationToken cancellation)
     {
-        while (!cancellation.IsCancellationRequested)
+        while (await this.workQueue.Writer.WaitToWriteAsync(cancellation))
         {
             await this.readersAvailable.WaitAsync(cancellation);
             TaskOrchestrationWorkItem orchestration = await this.orchestrationService
                 .LockNextTaskOrchestrationWorkItemAsync(Timeout.InfiniteTimeSpan, cancellation);
+            if (orchestration is null)
+            {
+                continue;
+            }
+
             await this.EnqueueAsync(orchestration, cancellation);
         }
     }
@@ -377,6 +481,8 @@ public class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase
         {
             // swallow errors.
             this.pendingOrchestrations.TryRemove(instance.InstanceId, out _);
+            await this.orchestrationService.AbandonTaskOrchestrationWorkItemAsync(orchestration);
+            await this.orchestrationService.ReleaseTaskOrchestrationWorkItemAsync(orchestration);
         }
     }
 }

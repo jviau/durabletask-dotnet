@@ -4,6 +4,7 @@
 using DurableTask.AzureStorage;
 using DurableTask.Core;
 using Grpc.Net.Client;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -22,11 +23,12 @@ public static class GrpcHost
     public static IWebHost CreateBulkHubHost(string name, out GrpcChannel channel)
     {
         string address = $"http://localhost:{Random.Shared.Next(30000, 40000)}";
-        IWebHost host = new WebHostBuilder()
+        IWebHost host = WebHost.CreateDefaultBuilder()
             .UseKestrel(options =>
             {
                 options.ConfigureEndpointDefaults(listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
             })
+            .ConfigureLogging(l => l.ClearProviders().AddFilter(_ => false))
             .UseUrls(address)
             .ConfigureServices(services =>
             {
@@ -51,12 +53,13 @@ public static class GrpcHost
     public static IWebHost CreateStreamHubHost(string name, out GrpcChannel channel)
     {
         string address = $"http://localhost:{Random.Shared.Next(30000, 40000)}";
-        IWebHost host = new WebHostBuilder()
+        IWebHost host = WebHost.CreateDefaultBuilder()
             .UseKestrel(options =>
             {
                 options.ConfigureEndpointDefaults(listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
             })
             .UseUrls(address)
+            .ConfigureLogging(l => l.ClearProviders().AddFilter(_ => false))
             .ConfigureServices(services =>
             {
                 services.AddGrpc();
@@ -101,22 +104,19 @@ public static class GrpcHost
 
     static void AddAzureStorageOrchestrationService(this IServiceCollection services, string name)
     {
-        services.AddSingleton(sp =>
+        services.AddSingleton<IOrchestrationService>(sp =>
         {
             ILoggerFactory lf = sp.GetRequiredService<ILoggerFactory>();
-
-            AzureStorageOrchestrationServiceSettings settings = new()
-            {
-                PartitionCount = 1,
-                StorageConnectionString = "UseDevelopmentStorage=true",
-                LoggerFactory = lf,
-                TaskHubName = $"durablebenchmark{name}",
-            };
-
-            IOrchestrationService s = new AzureStorageOrchestrationService(settings);
-            return s;
+            return OrchestrationService.CreateAzureStorage(name, lf);
         });
 
+        services.AddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
+    }
+
+    static void AddInMemoryOrchestrationService(this IServiceCollection services)
+    {
+        services.AddSingleton<InMemoryInstanceStore>();
+        services.AddSingleton<IOrchestrationService, InMemoryOrchestrationService>();
         services.AddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
     }
 }

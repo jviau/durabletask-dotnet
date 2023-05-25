@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net6.0</TargetFrameworks>
@@ -8,15 +8,15 @@
 
   <ItemGroup>
     <PackageReference Include="Grpc.Tools" Version="2.53.0" PrivateAssets="All" />
-    <PackageReference Include="Google.Protobuf" Version="3.21.12" />
+    <PackageReference Include="Google.Protobuf" Version="3.23.1" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-    <PackageReference Include="Grpc.Core" Version="2.46.5" />
+    <PackageReference Include="Grpc.Core" Version="2.46.6" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
-    <PackageReference Include="Grpc.Net.Client" Version="2.50.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.53.0" />
   </ItemGroup>
 
   <ItemGroup>

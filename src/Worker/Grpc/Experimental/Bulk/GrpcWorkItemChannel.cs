@@ -40,9 +40,19 @@ public partial class GrpcWorkItemChannel : BackgroundService
     public ChannelReader<WorkItem> Reader => this.channel.Reader;
 
     /// <inheritdoc/>
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Listener listener = new(this.client, this.logger);
-        return listener.ExecuteAsync(this.channel.Writer, stoppingToken);
+        try
+        {
+            Listener listener = new(this.client, this.logger);
+            await listener.ExecuteAsync(this.channel.Writer, stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            this.channel.Writer.TryComplete(ex);
+            throw;
+        }
+
+        this.channel.Writer.TryComplete();
     }
 }

@@ -4,11 +4,13 @@
 using DurableTask.AzureStorage;
 using DurableTask.Core;
 using Grpc.Net.Client;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Grpc.Hub;
+using Microsoft.DurableTask.Sidecar;
 using Microsoft.DurableTask.Sidecar.Grpc;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,7 +24,7 @@ public static class GrpcHost
     public static IWebHost CreateBulkHubHost(string name, out GrpcChannel channel)
     {
         string address = $"http://localhost:{Random.Shared.Next(30000, 40000)}";
-        IWebHost host = new WebHostBuilder()
+        IWebHost host = WebHost.CreateDefaultBuilder()
             .UseKestrel(options =>
             {
                 options.ConfigureEndpointDefaults(listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
@@ -30,8 +32,9 @@ public static class GrpcHost
             .UseUrls(address)
             .ConfigureServices(services =>
             {
-                services.AddGrpc();
+                //services.AddInMemoryOrchestrationService();
                 services.AddAzureStorageOrchestrationService(name);
+                services.AddGrpc();
                 services.AddSingleton<TaskHubGrpcServer>();
             })
             .Configure(app =>
@@ -51,7 +54,7 @@ public static class GrpcHost
     public static IWebHost CreateStreamHubHost(out GrpcChannel channel)
     {
         string address = $"http://localhost:{Random.Shared.Next(30000, 40000)}";
-        IWebHost host = new WebHostBuilder()
+        IWebHost host = WebHost.CreateDefaultBuilder()
             .UseKestrel(options =>
             {
                 options.ConfigureEndpointDefaults(listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
@@ -59,8 +62,9 @@ public static class GrpcHost
             .UseUrls(address)
             .ConfigureServices(services =>
             {
-                services.AddGrpc();
+                //services.AddInMemoryOrchestrationService();
                 services.AddAzureStorageOrchestrationService("stream");
+                services.AddGrpc();
                 services.AddTaskHubGrpc();
             })
             .Configure(app =>
@@ -117,6 +121,12 @@ public static class GrpcHost
             return s;
         });
         
+        services.AddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
+    }
+
+    static void AddInMemoryOrchestrationService(this IServiceCollection services)
+    {
+        services.AddSingleton<IOrchestrationService, InMemoryOrchestrationService>();
         services.AddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
     }
 }

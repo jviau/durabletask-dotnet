@@ -42,7 +42,8 @@ class GrpcOrchestrationWorkItem : OrchestrationWorkItem
     public override Channel<OrchestrationMessage> Channel => this.channel;
 
     /// <inheritdoc/>
-    public override Task ReleaseAsync() => this.channel.FlushAsync();
+    public override Task ReleaseAsync(CancellationToken cancellation = default)
+        => this.channel.FlushAsync(cancellation);
 
     static TaskName GetName(P.OrchestratorRequest request)
     {

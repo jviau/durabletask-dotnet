@@ -54,7 +54,7 @@ class GrpcOrchestrationWorkItem : OrchestrationWorkItem
     public override Channel<OrchestrationMessage> Channel => this.channel ??= new(this.Id, this.client);
 
     /// <inheritdoc/>
-    public override Task ReleaseAsync()
+    public override Task ReleaseAsync(CancellationToken cancellation = default)
     {
         if (this.channel is { } c)
         {
