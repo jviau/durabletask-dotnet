@@ -14,7 +14,8 @@ public class GrpcBulkExternalHosted : GrpcExternalHosted
 {
     protected override string Name => "bulk";
 
-    [Benchmark(Description = "Scale: channel runner + bulk gRPC")]
+    [BenchmarkCategory("External")]
+    [Benchmark(Description = "channel + bulk")]
     [ArgumentsSource(nameof(ScaleValues))]
     public Task OrchestrationScale(int count, int depth) => this.RunScaleAsync(count, depth);
 

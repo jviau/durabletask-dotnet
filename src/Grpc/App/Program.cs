@@ -6,7 +6,7 @@ using DurableTask.AzureStorage;
 using DurableTask.Core;
 using Microsoft.DurableTask.Grpc.App;
 using Microsoft.DurableTask.Grpc.Hub;
-using Microsoft.DurableTask.Sidecar.Grpc;
+using Microsoft.DurableTask.Grpc.Hub.Bulk;
 
 StartupOptions options = Parser.Default.ParseArguments<StartupOptions>(args).Value;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -20,9 +20,7 @@ if (options.Port is int port)
 AddAzureStorageOrchestrationService(builder.Services, options.Name);
 builder.Services.AddGrpc();
 builder.Services.AddTaskHubGrpc();
-
-builder.Services.Configure<TaskHubGrpcServerOptions>(o => o.Mode = TaskHubGrpcServerMode.ApiServerAndDispatcher);
-builder.Services.AddSingleton<TaskHubGrpcServer>();
+builder.Services.AddSingleton<BulkGrpcTaskHubServer>();
 
 WebApplication app = builder.Build();
 
@@ -32,7 +30,7 @@ await orchestrationService.CreateIfNotExistsAsync();
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GrpcTaskHubServer>();
 app.MapGrpcService<GrpcTaskClientServer>();
-app.MapGrpcService<TaskHubGrpcServer>();
+app.MapGrpcService<BulkGrpcTaskHubServer>();
 app.MapGet("/", () => "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");
 
 app.Run();

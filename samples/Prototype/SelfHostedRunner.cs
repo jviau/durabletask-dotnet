@@ -1,27 +1,24 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using DurableTask.Core;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.DurableTask.Client;
-using Microsoft.DurableTask.Sidecar;
 using Microsoft.DurableTask.Worker;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Prototype;
 
-sealed class SelfHosted : Runner<SelfHostedOptions>
+sealed class SelfHostedRunner : PrototypeRunner<SelfHostedOptions>
 {
     IWebHost? hub;
 
-    public SelfHosted(SelfHostedOptions options)
+    public SelfHostedRunner(SelfHostedOptions options)
         : base(options)
     {
     }
 
-    protected override async Task<IHost> InitializeAsync()
+    protected override async Task<IHost> CreateHostCoreAsync()
     {
         Console.WriteLine("Running locally hosted benchmark");
         IHost worker = CreateHosts(this.Options.Mode, out this.hub);
@@ -37,16 +34,6 @@ sealed class SelfHosted : Runner<SelfHostedOptions>
             await hub.StopAsync();
             hub.Dispose();
         }
-    }
-
-    protected override Task CleanupAsync(CancellationToken cancellation)
-    {
-        if (this.hub!.Services.GetService<IOrchestrationService>() is InMemoryOrchestrationService service)
-        {
-            return service.CreateAsync(true);
-        }
-
-        return base.CleanupAsync(cancellation);
     }
 
     static IHost CreateHosts(int mode, out IWebHost hub)

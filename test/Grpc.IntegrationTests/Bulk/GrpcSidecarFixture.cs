@@ -6,8 +6,8 @@ using Grpc.Net.Client;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.DurableTask.Sidecar;
-using Microsoft.DurableTask.Sidecar.Grpc;
+using Microsoft.DurableTask.Grpc.Hub;
+using Microsoft.DurableTask.Grpc.Hub.Bulk;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -39,14 +39,14 @@ public sealed class GrpcSidecarFixture : IDisposable
                 services.AddGrpc();
                 services.AddSingleton<IOrchestrationService>(service);
                 services.AddSingleton<IOrchestrationServiceClient>(service);
-                services.AddSingleton<TaskHubGrpcServer>();
+                services.AddSingleton<BulkGrpcTaskHubServer>();
             })
             .Configure(app =>
             {
                 app.UseRouting();
                 app.UseEndpoints(endpoints =>
                 {
-                    endpoints.MapGrpcService<TaskHubGrpcServer>();
+                    endpoints.MapGrpcService<BulkGrpcTaskHubServer>();
                 });
             })
             .Build();

@@ -2,10 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Collections;
-using System.Data;
 using DurableTask.Core;
 using DurableTask.Core.History;
-using Google.Protobuf;
 using P = Microsoft.DurableTask.Protobuf.Experimental;
 
 namespace Microsoft.DurableTask.Grpc.Hub;

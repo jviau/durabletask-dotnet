@@ -8,95 +8,109 @@ using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Prototype;
 
-interface IRunner : IAsyncDisposable
+abstract class Runner : IAsyncDisposable
 {
-    Task RunAsync();
+    IHost? host;
+
+    protected abstract string Description { get; }
+
+    public async Task RunAsync()
+    {
+        this.host = await this.CreateHostAsync();
+        IHostApplicationLifetime lifetime = this.host.Services.GetRequiredService<IHostApplicationLifetime>();
+        CancellationToken cancellation = lifetime.ApplicationStopping;
+        await this.host.StartAsync();
+
+        // warmup
+        for (int i = 0; i < 5; i++)
+        {
+            await this.RunIterationAsync(true, cancellation);
+            Console.WriteLine($"Warming up {i + 1}/5");
+            await this.IterationCleanupAsync(cancellation);
+        }
+
+        TimeSpan[] times = new TimeSpan[10];
+        for (int i = 0; i < 10; i++)
+        {
+            times[i] = await this.TimedIterationAsync(cancellation);
+            Console.WriteLine($"Itreration {i + 1}/10 -- {times[i].TotalMilliseconds}");
+            await this.IterationCleanupAsync(cancellation);
+        }
+
+        var ms = times.Select(t => t.TotalMilliseconds).ToList();
+        double avg = ms.Average();
+        double stdDev = Math.Sqrt(ms.Average(v => Math.Pow(v - avg, 2)));
+        Console.WriteLine($"{this.Description} -- Average: {avg}. StdDev: {stdDev}");
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        this.host?.Dispose();
+        return this.DisposeCoreAsync();
+    }
+
+    protected abstract Task<IHost> CreateHostAsync();
+    protected abstract Task RunIterationAsync(bool isWarmup, CancellationToken cancellation);
+    protected abstract Task IterationCleanupAsync(CancellationToken cancellation);
+    protected abstract ValueTask DisposeCoreAsync();
+
+     async Task<TimeSpan> TimedIterationAsync(CancellationToken cancellation)
+    {
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        await this.RunIterationAsync(false, cancellation);
+        stopwatch.Stop();
+        return stopwatch.Elapsed;
+    }
 }
 
-abstract class Runner<TOptions> : IRunner
+abstract class PrototypeRunner<TOptions> : Runner
     where TOptions : StartupOptions
 {
-    IHost? worker;
     DurableTaskClient client = null!;
 
-    public Runner(TOptions options)
+    public PrototypeRunner(TOptions options)
     {
         this.Options = options;
     }
 
     protected TOptions Options { get; }
 
-    public async Task RunAsync()
+    protected override string Description => this.Options.Description;
+
+    protected override async Task<IHost> CreateHostAsync()
     {
-        this.worker = await this.InitializeAsync();
-        await this.worker.StartAsync();
+        IHost host = await this.CreateHostCoreAsync();
+        this.client = host.Services.GetRequiredService<DurableTaskClient>();
+        return host;
+    }
 
-        this.client = this.worker.Services.GetRequiredService<DurableTaskClient>();
-        IHostApplicationLifetime lifetime = this.worker.Services.GetRequiredService<IHostApplicationLifetime>();
-        CancellationToken stoppingToken = lifetime.ApplicationStopping;
+    protected abstract Task<IHost> CreateHostCoreAsync();
 
+    protected override async Task RunIterationAsync(bool isWarmup, CancellationToken cancellation)
+    {
+        int depth = isWarmup ? 1 : this.Options.Depth;
         async Task RunOrchestrationAsync(int depth)
         {
             await Task.Yield();
             string id = await this.client.ScheduleNewOrchestrationInstanceAsync(
-                nameof(TestOrchestration), new TestInput(depth, "test-value"));
-            OrchestrationMetadata data = await this.client.WaitForInstanceCompletionAsync(id, stoppingToken);
+                nameof(TestOrchestration), new TestInput(depth, "test-value"), cancellation);
+            OrchestrationMetadata data = await this.client.WaitForInstanceCompletionAsync(id, cancellation);
             if (data.RuntimeStatus != OrchestrationRuntimeStatus.Completed)
             {
                 throw new InvalidOperationException($"Unexpected status of {data.RuntimeStatus}.");
             }
         }
 
-        async Task<TimeSpan> RunIterationAsync(int count, int depth)
+        Task[] tasks = new Task[this.Options.Count];
+        for (int i = 0; i < this.Options.Count; i++)
         {
-            Stopwatch sw = Stopwatch.StartNew();
-            Task[] tasks = new Task[count];
-            for (int i = 0; i < count; i++)
-            {
-                tasks[i] = RunOrchestrationAsync(depth);
-            }
-
-            await Task.WhenAll(tasks).WaitAsync(stoppingToken);
-            sw.Stop();
-            return sw.Elapsed;
+            tasks[i] = RunOrchestrationAsync(depth);
         }
 
-        // warmup
-        await this.CleanupAsync(stoppingToken);
-        for (int i = 0; i < 5; i++)
-        {
-            await RunIterationAsync(this.Options.Count, 1);
-            Console.WriteLine($"Warming up {i + 1}/5");
-            await this.CleanupAsync(stoppingToken);
-        }
-
-        TimeSpan[] times = new TimeSpan[10];
-        for (int i = 0; i < 10; i++)
-        {
-            times[i] = await RunIterationAsync(this.Options.Count, this.Options.Depth);
-            Console.WriteLine($"Itreration {i + 1}/10 -- {times[i].TotalMilliseconds}");
-            await this.CleanupAsync(stoppingToken);
-        }
-
-        var ms = times.Select(t => t.TotalMilliseconds).ToList();
-        double avg = ms.Average();
-        double stdDev = Math.Sqrt(ms.Average(v => Math.Pow(v - avg, 2)));
-        Console.WriteLine($"{this.Options.Description} -- Average: {avg}. StdDev: {stdDev}");
+        await Task.WhenAll(tasks).WaitAsync(cancellation);
     }
 
-    public async ValueTask DisposeAsync()
-    {
-        IHost? worker = Interlocked.Exchange(ref this.worker, null);
-        if (worker is not null)
-        {
-            await worker.StopAsync();
-            worker.Dispose();
-        }
-
-        await this.DisposeCoreAsync();
-    }
-
-    protected virtual Task CleanupAsync(CancellationToken cancellation)
+    protected override Task IterationCleanupAsync(CancellationToken cancellation)
     {
         IEnumerable<OrchestrationRuntimeStatus> statuses = new[]
         {
@@ -106,13 +120,9 @@ abstract class Runner<TOptions> : IRunner
                 OrchestrationRuntimeStatus.Suspended,
                 OrchestrationRuntimeStatus.Failed,
                 OrchestrationRuntimeStatus.Completed,
-            };
+        };
 
         PurgeInstancesFilter filter = new(CreatedFrom: DateTimeOffset.MinValue, Statuses: statuses);
         return this.client.PurgeAllInstancesAsync(filter, cancellation);
     }
-
-    protected abstract ValueTask DisposeCoreAsync();
-
-    protected abstract Task<IHost> InitializeAsync();
 }

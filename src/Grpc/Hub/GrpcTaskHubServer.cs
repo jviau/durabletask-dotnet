@@ -130,7 +130,7 @@ public sealed class GrpcTaskHubServer : DurableTaskHub.DurableTaskHubBase, IAsyn
             }
 
             using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(
-                this.cts.Token, context.CancellationToken);
+                this.ShutdownToken, context.CancellationToken);
             await foreach (WorkItem item in this.workQueue.Reader.ReadAllAsync(cts.Token))
             {
                 await responseStream.WriteAsync(item, cts.Token);

@@ -67,11 +67,6 @@ partial class OrchestrationRunner
                 {
                     while (this.Reader.TryRead(out OrchestrationMessage? message))
                     {
-                        if (!isOrchestratorThread)
-                        {
-
-                        }
-
                         this.logger.LogTrace("Received message of type {MessageType}", message.GetType());
                         this.HandleMessage(message);
                     }

@@ -1,7 +1,6 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using DurableTask.AzureStorage;
 using DurableTask.Core;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore;
@@ -10,8 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Grpc.Hub;
-using Microsoft.DurableTask.Sidecar;
-using Microsoft.DurableTask.Sidecar.Grpc;
+using Microsoft.DurableTask.Grpc.Hub.Bulk;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -35,14 +33,14 @@ public static class GrpcHost
                 //services.AddInMemoryOrchestrationService();
                 services.AddAzureStorageOrchestrationService(name);
                 services.AddGrpc();
-                services.AddSingleton<TaskHubGrpcServer>();
+                services.AddSingleton<BulkGrpcTaskHubServer>();
             })
             .Configure(app =>
             {
                 app.UseRouting();
                 app.UseEndpoints(endpoints =>
                 {
-                    endpoints.MapGrpcService<TaskHubGrpcServer>();
+                    endpoints.MapGrpcService<BulkGrpcTaskHubServer>();
                 });
             })
             .Build();
@@ -105,20 +103,10 @@ public static class GrpcHost
 
     static void AddAzureStorageOrchestrationService(this IServiceCollection services, string name)
     {
-        services.AddSingleton(sp =>
+        services.AddSingleton<IOrchestrationService>(sp =>
         {
             ILoggerFactory lf = sp.GetRequiredService<ILoggerFactory>();
-
-            AzureStorageOrchestrationServiceSettings settings = new()
-            {
-                PartitionCount = 1,
-                StorageConnectionString = "UseDevelopmentStorage=true",
-                LoggerFactory = lf,
-                TaskHubName = "prototype" + name,
-            };
-
-            IOrchestrationService s = new AzureStorageOrchestrationService(settings);
-            return s;
+            return OrchestrationService.CreateAzureStorage(name, lf);
         });
         
         services.AddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());

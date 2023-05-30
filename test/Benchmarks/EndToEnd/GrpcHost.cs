@@ -1,7 +1,6 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using DurableTask.AzureStorage;
 using DurableTask.Core;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore;
@@ -10,7 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Grpc.Hub;
-using Microsoft.DurableTask.Sidecar.Grpc;
+using Microsoft.DurableTask.Grpc.Hub.Bulk;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -34,14 +33,14 @@ public static class GrpcHost
             {
                 services.AddGrpc();
                 services.AddAzureStorageOrchestrationService(name);
-                services.AddSingleton<TaskHubGrpcServer>();
+                services.AddSingleton<BulkGrpcTaskHubServer>();
             })
             .Configure(app =>
             {
                 app.UseRouting();
                 app.UseEndpoints(endpoints =>
                 {
-                    endpoints.MapGrpcService<TaskHubGrpcServer>();
+                    endpoints.MapGrpcService<BulkGrpcTaskHubServer>();
                 });
             })
             .Build();

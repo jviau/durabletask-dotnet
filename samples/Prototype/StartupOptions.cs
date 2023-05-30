@@ -13,10 +13,15 @@ abstract class StartupOptions
     [Option('d', "depth", HelpText = "Number of activities to run per orchestration.")]
     public int Depth { get; set; } = 5;
 
+    public abstract string Description { get; }
+}
+
+abstract class PrototypeOptions : StartupOptions
+{
     [Option('m', "mode", HelpText = "0 = core runner, bulk gRPC. 1 = channel runner, bulk gRPC. 2 = channel runner, stream gRPC")]
     public int Mode { get; set; } = 0;
 
-    public string Description => this.Mode switch
+    public override string Description => this.Mode switch
     {
         0 => "Core runner + bulk gRPC",
         1 => "Channel runner + bulk gRPC",
@@ -26,13 +31,19 @@ abstract class StartupOptions
 }
 
 [Verb("local", isDefault: true, HelpText = "Runs the prototype with the hub self-hosted.")]
-class SelfHostedOptions : StartupOptions
+class SelfHostedOptions : PrototypeOptions
 {
 }
 
 [Verb("external", HelpText = "Runs the prototype with the hub externally hosted.")]
-class ExternalHostedOptions : StartupOptions
+class ExternalHostedOptions : PrototypeOptions
 {
     [Option('p', "port", HelpText = "The gRPC port to connect to.")]
     public int Port { get; set; }
+}
+
+[Verb("baseline", HelpText = "Runs the baseline DurableTask.Core perf.")]
+class BaselineOptions : StartupOptions
+{
+    public override string Description => "Baseline DurableTask.Core";
 }

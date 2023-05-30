@@ -30,6 +30,15 @@ class InMemoryInstanceStore
     /// </summary>
     /// <param name="logger">The logger.</param>
     public InMemoryInstanceStore(ILogger<InMemoryInstanceStore>? logger)
+        : this((ILogger?)logger)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InMemoryInstanceStore"/> class.
+    /// </summary>
+    /// <param name="logger">The logger.</param>
+    internal InMemoryInstanceStore(ILogger? logger)
     {
         this.logger = logger ?? NullLogger<InMemoryInstanceStore>.Instance;
     }

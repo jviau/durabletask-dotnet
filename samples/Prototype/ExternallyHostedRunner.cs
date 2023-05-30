@@ -8,21 +8,20 @@ using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Prototype;
 
-class ExternallyHosted : Runner<ExternalHostedOptions>
+class ExternallyHostedRunner : PrototypeRunner<ExternalHostedOptions>
 {
-    public ExternallyHosted(ExternalHostedOptions options)
+    public ExternallyHostedRunner(ExternalHostedOptions options)
         : base(options)
     {
     }
 
-    protected override Task<IHost> InitializeAsync()
+    protected override Task<IHost> CreateHostCoreAsync()
     {
         Console.WriteLine($"Running externally hosted benchmark, port {this.Options.Port}.");
         return Task.FromResult(CreateHost(this.Options.Mode, this.Options.Port));
     }
 
     protected override ValueTask DisposeCoreAsync() => default;
-
 
     static IHost CreateHost(int mode, int port)
     {

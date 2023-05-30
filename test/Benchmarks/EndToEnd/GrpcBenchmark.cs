@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using BenchmarkDotNet.Attributes;
-using DurableTask.Core;
 using Grpc.Net.Client;
 using Microsoft.DurableTask.Client;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,12 +18,7 @@ public abstract class GrpcBenchmark
 
     protected CancellationToken ShutdownToken { get; private set; }
 
-    public IEnumerable<object[]> ScaleValues()
-    {
-        //yield return new object[] { 10, 5 };
-        //yield return new object[] { 100, 1 };
-        yield return new object[] { 100, 5 };
-    }
+    public IEnumerable<object[]> ScaleValues() => ScaleArguments.Values;
 
     [IterationCleanup]
     public void IterationCleanup()

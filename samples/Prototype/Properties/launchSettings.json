@@ -2,7 +2,7 @@
   "profiles": {
     "Prototype": {
       "commandName": "Project",
-      "commandLineArgs": "external -c 20 -d 5 -m 2 -p 5200"
+      "commandLineArgs": "baseline -c 20 -d 5"
     }
   }
 }

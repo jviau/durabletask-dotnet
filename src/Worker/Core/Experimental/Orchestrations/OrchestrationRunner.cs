@@ -11,9 +11,6 @@ namespace Microsoft.DurableTask.Worker;
 /// </summary>
 partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, OrchestrationRunnerOptions>
 {
-    [ThreadStatic]
-    static bool isOrchestratorThread;
-
     readonly IServiceProvider services;
     readonly ILoggerFactory loggerFactory;
     readonly ILogger logger;
@@ -66,7 +63,6 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
         using OrchestrationSynchronizationContext context = new();
         try
         {
-            isOrchestratorThread = true;
             SynchronizationContext.SetSynchronizationContext(context);
             Cursor cursor = new(workItem, this.Options, orchestrator, this.loggerFactory, cancellation);
             await cursor.RunAsync();
@@ -77,7 +73,6 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
         }
         finally
         {
-            isOrchestratorThread = false;
             context.Cancel();
             SynchronizationContext.SetSynchronizationContext(previous);
             await workItem.ReleaseAsync(cancellation);

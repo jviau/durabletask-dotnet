@@ -13,7 +13,8 @@ namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 [MemoryDiagnoser]
 public class GrpcBulkSelfHosted : GrpcSelfHosted
 {
-    [Benchmark(Description = "Scale: channel runner + bulk gRPC")]
+    [BenchmarkCategory("Local")]
+    [Benchmark(Description = "channel + bulk")]
     [ArgumentsSource(nameof(ScaleValues))]
     public Task OrchestrationScale(int count, int depth) => this.RunScaleAsync(count, depth);
 

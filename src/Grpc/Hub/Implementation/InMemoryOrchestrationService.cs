@@ -15,7 +15,7 @@ namespace Microsoft.DurableTask.Grpc.Hub;
 /// <summary>
 /// An in-memory orchestration service.
 /// </summary>
-partial class InMemoryOrchestrationService :
+public class InMemoryOrchestrationService :
     IOrchestrationService, IOrchestrationServiceClient,
     IOrchestrationServiceQueryClient, IOrchestrationServicePurgeClient
 {
@@ -26,13 +26,10 @@ partial class InMemoryOrchestrationService :
     /// <summary>
     /// Initializes a new instance of the <see cref="InMemoryOrchestrationService"/> class.
     /// </summary>
-    /// <param name="instanceStore">The instance store.</param>
     /// <param name="logger">The logger.</param>
-    public InMemoryOrchestrationService(
-        InMemoryInstanceStore instanceStore,
-        ILogger<InMemoryOrchestrationService>? logger = null)
+    public InMemoryOrchestrationService(ILogger<InMemoryOrchestrationService>? logger = null)
     {
-        this.instanceStore = instanceStore;
+        this.instanceStore = new InMemoryInstanceStore(logger);
         this.logger = logger ?? NullLogger<InMemoryOrchestrationService>.Instance;
     }
 

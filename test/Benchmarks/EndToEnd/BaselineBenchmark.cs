@@ -6,25 +6,35 @@ using DurableTask.Core;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-public abstract class CoreBenchmark
+[MemoryDiagnoser]
+[MaxIterationCount(30)]
+public class BaselineBenchmark
 {
     readonly CancellationTokenSource cts = new();
     IOrchestrationService orchestrationService = null!;
     TaskHubWorker worker = null!;
 
-    protected TaskHubClient Client { get; private set; } = null!;
+    protected TaskHubClient Client { get; set; } = null!;
+
+    public IEnumerable<object[]> ScaleValues() => ScaleArguments.Values;
 
     [GlobalSetup]
-    public async Task SetupAsync()
+    public void Setup()
     {
-        this.orchestrationService = OrchestrationService.CreateAzureStorage("dtfxcore");
-        this.worker = new(this.orchestrationService);
-        this.worker.AddTaskOrchestrations(typeof(TestCoreOrchestration));
-        this.worker.AddTaskActivities(typeof(TestCoreActivity));
+        async Task Run()
+        {
+            Console.CancelKeyPress += this.CancelKeyPress;
+            this.orchestrationService = OrchestrationService.CreateAzureStorage("baseline");
+            await this.orchestrationService.CreateIfNotExistsAsync();
+            this.worker = new(this.orchestrationService);
+            this.worker.AddTaskOrchestrations(typeof(TestCoreOrchestration));
+            this.worker.AddTaskActivities(typeof(TestCoreActivity));
 
-        await this.worker.StartAsync();
+            await this.worker.StartAsync();
+            this.Client = new TaskHubClient((IOrchestrationServiceClient)this.orchestrationService);
+        }
 
-        Console.CancelKeyPress += this.CancelKeyPress;
+        Run().GetAwaiter().GetResult();
     }
 
     [IterationCleanup]
@@ -49,19 +59,27 @@ public abstract class CoreBenchmark
     }
 
     [GlobalCleanup]
-    public async Task CleanupAsync()
+    public void Cleanup()
     {
-        Console.CancelKeyPress -= this.CancelKeyPress;
-        this.cts.Dispose();
-        TimeSpan timeout = TimeSpan.FromSeconds(5);
-        Task delay =Task.Delay(timeout);
-        if (await Task.WhenAny(this.worker.StopAsync(), delay) == delay)
+        async Task Run()
         {
-            await this.worker.StopAsync(true);
+            Console.CancelKeyPress -= this.CancelKeyPress;
+            this.cts.Dispose();
+            TimeSpan timeout = TimeSpan.FromSeconds(5);
+            Task delay = Task.Delay(timeout);
+            if (await Task.WhenAny(this.worker.StopAsync(), delay) == delay)
+            {
+                await this.worker.StopAsync(true);
+            }
         }
+
+        Run().GetAwaiter().GetResult();
     }
 
-    protected async Task RunScaleAsync(int count, int depth)
+    [BenchmarkCategory("External", "Local")]
+    [Benchmark(Description = "baseline", Baseline = true)]
+    [ArgumentsSource(nameof(ScaleValues))]
+    public async Task OrchestrationScale(int count, int depth)
     {
         async Task RunOrchestrationAsync()
         {

@@ -14,7 +14,8 @@ public class GrpcStreamExternalHosted : GrpcExternalHosted
 {
     protected override string Name => "stream";
 
-    [Benchmark(Description = "Scale: channel runner + stream gRPC")]
+    [BenchmarkCategory("External")]
+    [Benchmark(Description = "channel + stream")]
     [ArgumentsSource(nameof(ScaleValues))]
     public Task OrchestrationScale(int count, int depth) => this.RunScaleAsync(count, depth);
 
