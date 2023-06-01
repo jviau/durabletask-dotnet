@@ -10,7 +10,6 @@ using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-[MemoryDiagnoser]
 public class GrpcCoreSelfHosted : GrpcSelfHosted
 {
     [BenchmarkCategory("Local")]

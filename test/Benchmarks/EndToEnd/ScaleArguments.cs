@@ -10,9 +10,9 @@ public static class ScaleArguments
     {
         get
         {
-            yield return new object[] { 10, 5 };
+            //yield return new object[] { 10, 5 };
             //yield return new object[] { 100, 1 };
-            yield return new object[] { 100, 5 };
+            yield return new object[] { 1000, 100 };
         }
     }
 }

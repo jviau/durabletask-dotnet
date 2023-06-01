@@ -9,7 +9,6 @@ using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-[MemoryDiagnoser]
 public class GrpcStreamExternalHosted : GrpcExternalHosted
 {
     protected override string Name => "stream";

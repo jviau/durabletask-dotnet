@@ -7,7 +7,7 @@ using DurableTask.Core;
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
 [MemoryDiagnoser]
-[MaxIterationCount(30)]
+[IterationCount(10)]
 public class BaselineBenchmark
 {
     readonly CancellationTokenSource cts = new();

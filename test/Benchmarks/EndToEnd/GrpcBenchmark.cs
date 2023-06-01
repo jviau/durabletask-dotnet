@@ -9,7 +9,8 @@ using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-[MaxIterationCount(30)]
+[MemoryDiagnoser]
+[IterationCount(10)]
 public abstract class GrpcBenchmark
 {
     protected IHost WorkerHost { get; private set; } = null!;

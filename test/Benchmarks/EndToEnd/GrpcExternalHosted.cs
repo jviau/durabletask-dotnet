@@ -14,10 +14,10 @@ public abstract class GrpcExternalHosted : GrpcBenchmark
     protected abstract string Name { get; }
 
     [GlobalSetup]
-    public Task SetupAsync()
+    public void Setup()
     {
         GrpcChannel channel = this.SetupHubProcess();
-        return this.SetupCoreAsync(channel);
+        this.SetupCoreAsync(channel).GetAwaiter().GetResult();
     }
 
     [GlobalCleanup]
@@ -32,17 +32,19 @@ public abstract class GrpcExternalHosted : GrpcBenchmark
     {
         int port = Random.Shared.Next(30000, 40000);
         DirectoryInfo? dir = new(Environment.CurrentDirectory);
-        while (!string.Equals(dir.Name, "release", StringComparison.Ordinal)
-            && !string.Equals(dir.Name, "debug", StringComparison.Ordinal))
+        DirectoryInfo? child = dir.GetDirectories("Grpc.App", SearchOption.TopDirectoryOnly).FirstOrDefault();
+        while (child is null)
         {
             dir = dir.Parent;
             if (dir is null)
             {
-                throw new InvalidOperationException();
+                throw new InvalidOperationException("Expected folder is missing");
             }
+
+            child = dir.GetDirectories("Grpc.App", SearchOption.TopDirectoryOnly).FirstOrDefault();
         }
 
-        string path = Path.Combine(dir.FullName, "Grpc.App", "net6.0", "Microsoft.DurableTask.Grpc.App.exe");
+        string path = Path.Combine(child.FullName, "net6.0", "Microsoft.DurableTask.Grpc.App.exe");
         this.process = Process.Start(path, $"-p {port} -n {this.Name}benchmark \"Logging:LogLevel:Default=Warning\"");
         return GrpcChannel.ForAddress($"http://localhost:{port}");
     }
