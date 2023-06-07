@@ -15,6 +15,7 @@ partial class GrpcOrchestrationChannel : Channel<OrchestrationMessage>, IAsyncDi
 {
     readonly string instanceId;
     readonly Func<Task> complete;
+    readonly IDisposable stream;
 
     bool disposed;
 
@@ -27,6 +28,7 @@ partial class GrpcOrchestrationChannel : Channel<OrchestrationMessage>, IAsyncDi
     {
         this.instanceId = Check.NotNullOrEmpty(instanceId);
         AsyncDuplexStreamingCall<P.OrchestratorAction, P.OrchestratorMessage> stream = client.OrchestrationStream();
+        this.stream = stream;
 
         this.complete = stream.RequestStream.CompleteAsync;
         this.Reader = new GrpcReader(stream.ResponseStream, this.InitializeAsync);
@@ -70,9 +72,11 @@ partial class GrpcOrchestrationChannel : Channel<OrchestrationMessage>, IAsyncDi
             // 1. Drain pending writes.
             // 2. Complete gRPC stream.
             // 3. Ensure reader cleanup finishes.
+            // 4. Dispose stream for final cleanup.
             await ((GrpcWriter)this.Writer).DisposeAsync();
             await this.complete.Invoke();
             await ((GrpcReader)this.Reader).DisposeAsync();
+            this.stream.Dispose();
         }
     }
 

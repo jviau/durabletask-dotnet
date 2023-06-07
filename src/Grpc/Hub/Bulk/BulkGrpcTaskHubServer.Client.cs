@@ -149,6 +149,18 @@ public partial class BulkGrpcTaskHubServer
         return new P.TerminateResponse();
     }
 
+    /// <inheritdoc/>
+    public override async Task<P.GetInstanceResponse> WaitForInstanceCompletion(
+        P.GetInstanceRequest request, ServerCallContext context)
+    {
+        Check.NotNull(request);
+        Check.NotNull(context);
+        OrchestrationState state = await this.client.WaitForOrchestrationAsync(
+            request.InstanceId, null, TimeSpan.MaxValue, context.CancellationToken);
+
+        return CreateGetInstanceResponse(state, request);
+    }
+
     static P.GetInstanceResponse CreateGetInstanceResponse(OrchestrationState state, P.GetInstanceRequest request)
     {
         return new P.GetInstanceResponse

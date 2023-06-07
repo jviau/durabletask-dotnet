@@ -202,12 +202,7 @@ public sealed partial class BulkGrpcTaskHubServer : TaskHubSidecarServiceBase, I
 
     async ValueTask EnqueueAsync(TaskOrchestrationWorkItem orchestration, CancellationToken cancellation)
     {
-        orchestration.OrchestrationRuntimeState.AddEvent(new OrchestratorStartedEvent(-1));
-        foreach (TaskMessage message in orchestration.FilterAndSortMessages())
-        {
-            orchestration.OrchestrationRuntimeState.AddEvent(message.Event);
-        }
-
+        orchestration.PrepareForRun();
         OrchestrationRuntimeState state = orchestration.OrchestrationRuntimeState!;
         OrchestrationInstance instance = state.OrchestrationInstance!;
         P.WorkItem workItem = new()

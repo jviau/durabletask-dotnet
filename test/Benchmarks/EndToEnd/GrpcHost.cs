@@ -32,7 +32,7 @@ public static class GrpcHost
             .ConfigureServices(services =>
             {
                 services.AddGrpc();
-                services.AddAzureStorageOrchestrationService(name);
+                services.AddOrchestrationService(OrchestrationService.Kind.Default(name));
                 services.AddSingleton<BulkGrpcTaskHubServer>();
             })
             .Configure(app =>
@@ -62,7 +62,7 @@ public static class GrpcHost
             .ConfigureServices(services =>
             {
                 services.AddGrpc();
-                services.AddAzureStorageOrchestrationService(name);
+                services.AddOrchestrationService(OrchestrationService.Kind.Default(name));
                 services.AddTaskHubGrpc();
             })
             .Configure(app =>
@@ -99,23 +99,5 @@ public static class GrpcHost
                 services.AddDurableTaskClient(configureClient);
             })
             .Build();
-    }
-
-    static void AddAzureStorageOrchestrationService(this IServiceCollection services, string name)
-    {
-        services.AddSingleton<IOrchestrationService>(sp =>
-        {
-            ILoggerFactory lf = sp.GetRequiredService<ILoggerFactory>();
-            return OrchestrationService.CreateAzureStorage(name, lf);
-        });
-
-        services.AddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
-    }
-
-    static void AddInMemoryOrchestrationService(this IServiceCollection services)
-    {
-        services.AddSingleton<InMemoryInstanceStore>();
-        services.AddSingleton<IOrchestrationService, InMemoryOrchestrationService>();
-        services.AddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
     }
 }

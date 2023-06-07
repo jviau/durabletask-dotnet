@@ -11,6 +11,35 @@ namespace Microsoft.DurableTask;
 static class TaskExtensions
 {
     /// <summary>
+    /// Helper to 'consume' a task to avoid analyzer warnings for a non-awaited task.
+    /// </summary>
+    /// <param name="task">The task to forget.</param>
+    public static void Forget(this Task task)
+    {
+        Check.NotNull(task);
+    }
+
+    /// <summary>
+    /// Helper to 'consume' a task to avoid analyzer warnings for a non-awaited task.
+    /// </summary>
+    /// <param name="task">The task to forget.</param>
+    public static void Forget(this ValueTask task)
+    {
+        // no op.
+    }
+
+    /// <summary>
+    /// Helper to 'consume' a task to avoid analyzer warnings for a non-awaited task.
+    /// </summary>
+    /// <typeparam name="T">The type held by the value task.</typeparam>
+    /// <param name="task">The task to forget.</param>
+    public static void Forget<T>(this ValueTask<T> task)
+        where T : class
+    {
+        // no op.
+    }
+
+    /// <summary>
     /// Converts a <see cref="ValueTask{T}" /> to a <see cref="ValueTask" /> without a state machine or allocations (in
     /// most cases).
     /// </summary>

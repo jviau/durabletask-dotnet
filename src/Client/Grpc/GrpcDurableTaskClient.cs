@@ -243,18 +243,38 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
     {
         Check.NotNullOrEmpty(instanceId);
-        while (true)
+        if (AppContext.TryGetSwitch("Microsoft.DurableTask.Client.PollOrchestrations", out bool poll) && poll)
         {
-            OrchestrationMetadata? metadata = await this.GetInstanceAsync(
-                instanceId, getInputsAndOutputs, cancellation)
-                ?? throw new InvalidOperationException("Not found");
-
-            if (metadata.IsCompleted)
+            while (true)
             {
-                return metadata;
+                OrchestrationMetadata? metadata = await this.GetInstanceAsync(
+                    instanceId, getInputsAndOutputs, cancellation)
+                    ?? throw new InvalidOperationException("Not found");
+
+                if (metadata.IsCompleted)
+                {
+                    return metadata;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
+            }
+        }
+        else
+        {
+            P.GetInstanceResponse response = await this.sidecarClient.WaitForInstanceCompletionAsync(
+                new P.GetInstanceRequest
+                {
+                    InstanceId = instanceId,
+                    GetInputsAndOutputs = getInputsAndOutputs,
+                },
+                cancellationToken: cancellation);
+
+            if (!response.Exists)
+            {
+                throw new InvalidOperationException();
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
+            return this.CreateMetadata(response.OrchestrationState, getInputsAndOutputs);
         }
     }
 
@@ -263,18 +283,38 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
     {
         Check.NotNullOrEmpty(instanceId);
-        while (true)
+        if (AppContext.TryGetSwitch("Microsoft.DurableTask.Client.PollOrchestrations", out bool poll) && poll)
         {
-            OrchestrationMetadata? metadata = await this.GetInstanceAsync(
-                instanceId, getInputsAndOutputs, cancellation)
-                ?? throw new InvalidOperationException("Not found");
-
-            if (metadata.RuntimeStatus != OrchestrationRuntimeStatus.Pending)
+            while (true)
             {
-                return metadata;
+                OrchestrationMetadata? metadata = await this.GetInstanceAsync(
+                    instanceId, getInputsAndOutputs, cancellation)
+                    ?? throw new InvalidOperationException("Not found");
+
+                if (metadata.RuntimeStatus != OrchestrationRuntimeStatus.Pending)
+                {
+                    return metadata;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
+            }
+        }
+        else
+        {
+            P.GetInstanceResponse response = await this.sidecarClient.WaitForInstanceStartAsync(
+                new P.GetInstanceRequest
+                {
+                    InstanceId = instanceId,
+                    GetInputsAndOutputs = getInputsAndOutputs,
+                },
+                cancellationToken: cancellation);
+
+            if (!response.Exists)
+            {
+                throw new InvalidOperationException();
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
+            return this.CreateMetadata(response.OrchestrationState, getInputsAndOutputs);
         }
     }
 

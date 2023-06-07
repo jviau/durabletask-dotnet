@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Xml.Linq;
 using DurableTask.Core;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore;
@@ -30,8 +31,7 @@ public static class GrpcHost
             .UseUrls(address)
             .ConfigureServices(services =>
             {
-                //services.AddInMemoryOrchestrationService();
-                services.AddAzureStorageOrchestrationService(name);
+                services.AddOrchestrationService(OrchestrationService.Kind.Default(name));
                 services.AddGrpc();
                 services.AddSingleton<BulkGrpcTaskHubServer>();
             })
@@ -60,8 +60,7 @@ public static class GrpcHost
             .UseUrls(address)
             .ConfigureServices(services =>
             {
-                //services.AddInMemoryOrchestrationService();
-                services.AddAzureStorageOrchestrationService("stream");
+                services.AddOrchestrationService(OrchestrationService.Kind.Default("stream"));
                 services.AddGrpc();
                 services.AddTaskHubGrpc();
             })
@@ -99,22 +98,5 @@ public static class GrpcHost
                 services.AddDurableTaskClient(configureClient);
             })
             .Build();
-    }
-
-    static void AddAzureStorageOrchestrationService(this IServiceCollection services, string name)
-    {
-        services.AddSingleton<IOrchestrationService>(sp =>
-        {
-            ILoggerFactory lf = sp.GetRequiredService<ILoggerFactory>();
-            return OrchestrationService.CreateAzureStorage(name, lf);
-        });
-        
-        services.AddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
-    }
-
-    static void AddInMemoryOrchestrationService(this IServiceCollection services)
-    {
-        services.AddSingleton<IOrchestrationService, InMemoryOrchestrationService>();
-        services.AddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
     }
 }

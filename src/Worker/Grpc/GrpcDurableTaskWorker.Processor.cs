@@ -41,7 +41,7 @@ sealed partial class GrpcDurableTaskWorker
             {
                 try
                 {
-                    AsyncServerStreamingCall<P.WorkItem> stream = await this.ConnectAsync(cancellation);
+                    using AsyncServerStreamingCall<P.WorkItem> stream = await this.ConnectAsync(cancellation);
                     await this.ProcessWorkItemsAsync(stream, cancellation);
                 }
                 catch (RpcException) when (cancellation.IsCancellationRequested)

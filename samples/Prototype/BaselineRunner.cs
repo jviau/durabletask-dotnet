@@ -6,7 +6,6 @@ using DurableTask.DependencyInjection;
 using DurableTask.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace Microsoft.DurableTask.Prototype;
 
@@ -29,14 +28,7 @@ class BaselineRunner : Runner
         IHost host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
             {
-                services.AddSingleton<IOrchestrationService>(sp =>
-                {
-                    ILoggerFactory lf = sp.GetRequiredService<ILoggerFactory>();
-                    return OrchestrationService.CreateAzureStorage("baseline", lf);
-                });
-
-                services.AddSingleton(
-                    sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
+                services.AddOrchestrationService(OrchestrationService.Kind.Default("baseline"));
             })
             .ConfigureTaskHubWorker(builder =>
             {

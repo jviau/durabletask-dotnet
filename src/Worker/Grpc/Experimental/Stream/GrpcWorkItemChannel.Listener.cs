@@ -32,7 +32,7 @@ public partial class GrpcWorkItemChannel
                 try
                 {
                     P.GetWorkItemsRequest request = new();
-                    AsyncServerStreamingCall<P.WorkItem> stream = this.client.WorkItemStream(
+                    using AsyncServerStreamingCall<P.WorkItem> stream = this.client.WorkItemStream(
                         request, cancellationToken: cancellation);
                     await this.ProcessWorkItemsAsync(writer, stream, cancellation);
                 }

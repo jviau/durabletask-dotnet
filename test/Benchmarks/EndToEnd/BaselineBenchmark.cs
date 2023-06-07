@@ -24,7 +24,7 @@ public class BaselineBenchmark
         async Task Run()
         {
             Console.CancelKeyPress += this.CancelKeyPress;
-            this.orchestrationService = OrchestrationService.CreateAzureStorage("baseline");
+            this.orchestrationService = OrchestrationService.Create(OrchestrationService.Kind.Default("baseline"));
             await this.orchestrationService.CreateIfNotExistsAsync();
             this.worker = new(this.orchestrationService);
             this.worker.AddTaskOrchestrations(typeof(TestCoreOrchestration));

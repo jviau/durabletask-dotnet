@@ -214,18 +214,36 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
     {
         Check.NotNullOrEmpty(instanceId);
-        while (true)
+
+        if (AppContext.TryGetSwitch("Microsoft.DurableTask.Client.PollOrchestrations", out bool poll) && poll)
         {
-            OrchestrationMetadata? metadata = await this.GetInstanceAsync(
-                instanceId, getInputsAndOutputs, cancellation)
-                ?? throw new InvalidOperationException("Not found");
-
-            if (metadata.IsCompleted)
+            while (true)
             {
-                return metadata;
-            }
+                OrchestrationMetadata? metadata = await this.GetInstanceAsync(
+                    instanceId, getInputsAndOutputs, cancellation)
+                    ?? throw new InvalidOperationException("Not found");
 
-            await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
+                if (metadata.IsCompleted)
+                {
+                    return metadata;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
+            }
+        }
+        else
+        {
+            try
+            {
+                P.GetOrchestrationRequest request = CreateGetRequest(instanceId, getInputsAndOutputs);
+                P.OrchestrationInfoResponse response = await this.client.WaitOrchestrationAsync(
+                    request, cancellationToken: cancellation);
+                return this.CreateMetadata(response, getInputsAndOutputs);
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
+            {
+                throw new OperationCanceledException(null, ex, cancellation);
+            }
         }
     }
 

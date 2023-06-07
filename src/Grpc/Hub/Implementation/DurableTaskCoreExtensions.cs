@@ -45,6 +45,21 @@ static class DurableTaskCoreExtensions
     }
 
     /// <summary>
+    /// Prepare this work item for execution.
+    /// </summary>
+    /// <param name="workItem">The work item to run.</param>
+    public static void PrepareForRun(this TaskOrchestrationWorkItem workItem)
+    {
+        Check.NotNull(workItem);
+
+        workItem.OrchestrationRuntimeState.NewEvents.Insert(0, new OrchestratorStartedEvent(-1));
+        foreach (TaskMessage message in workItem.FilterAndSortMessages())
+        {
+            workItem.OrchestrationRuntimeState.AddEvent(message.Event);
+        }
+    }
+
+    /// <summary>
     /// Filter and sort the messages from a work item.
     /// </summary>
     /// <param name="workItem">The work item to filter sort.</param>
@@ -85,5 +100,28 @@ static class DurableTaskCoreExtensions
                 yield return msg;
             }
         }
+    }
+
+    /// <summary>
+    /// Checks if two orchestration instances equal one another.
+    /// </summary>
+    /// <param name="left">The left instance to check for equality.</param>
+    /// <param name="right">The right instance to check for equality.</param>
+    /// <param name="exact">
+    /// <c>true</c> to include <see cref="OrchestrationInstance.ExecutionId"/>, <c>false</c> to ignore it.
+    /// </param>
+    /// <returns>True if equals, false otherwise.</returns>
+    public static bool Equals(
+        this OrchestrationInstance left, OrchestrationInstance right, bool exact = false)
+    {
+        Check.NotNull(left);
+
+        if (right is null)
+        {
+            return false;
+        }
+
+        return left.InstanceId.Equals(right.InstanceId, StringComparison.Ordinal)
+            && (!exact || left.ExecutionId.Equals(right.ExecutionId, StringComparison.Ordinal));
     }
 }

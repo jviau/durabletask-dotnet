@@ -55,23 +55,23 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebAPI", "samples\WebAPI\We
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shared", "src\Shared\Shared.csproj", "{57A4C812-B0D9-49E9-9EBE-7E94D3D78ED7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "misc", "misc\misc.csproj", "{1E135970-60CF-470A-9270-4560BFA0A7DF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "misc", "misc\misc.csproj", "{1E135970-60CF-470A-9270-4560BFA0A7DF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client.OrchestrationServiceClientShim", "src\Client\OrchestrationServiceClientShim\Client.OrchestrationServiceClientShim.csproj", "{505F6151-6E36-4E0A-A740-14751B8A9397}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Client.OrchestrationServiceClientShim", "src\Client\OrchestrationServiceClientShim\Client.OrchestrationServiceClientShim.csproj", "{505F6151-6E36-4E0A-A740-14751B8A9397}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client.OrchestrationServiceClientShim.Tests", "test\Client\OrchestrationServiceClientShim.Tests\Client.OrchestrationServiceClientShim.Tests.csproj", "{93E3B973-0FC4-4241-B7BB-064FB538FB50}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Client.OrchestrationServiceClientShim.Tests", "test\Client\OrchestrationServiceClientShim.Tests\Client.OrchestrationServiceClientShim.Tests.csproj", "{93E3B973-0FC4-4241-B7BB-064FB538FB50}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benchmarks", "test\Benchmarks\Benchmarks.csproj", "{82C0CD7D-2764-421A-8256-7E2304D5A6E7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Benchmarks", "test\Benchmarks\Benchmarks.csproj", "{82C0CD7D-2764-421A-8256-7E2304D5A6E7}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Grpc", "Grpc", "{460078E5-498C-4659-B43E-96E27321742B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grpc.App", "src\grpc\App\Grpc.App.csproj", "{A5EAFA35-CD1D-4EB7-9246-7F9288009CC0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Grpc.App", "src\grpc\App\Grpc.App.csproj", "{A5EAFA35-CD1D-4EB7-9246-7F9288009CC0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grpc", "src\grpc\Core\Grpc.csproj", "{C967F0C2-EBDE-4660-923D-18D3288908C6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Grpc", "src\grpc\Core\Grpc.csproj", "{C967F0C2-EBDE-4660-923D-18D3288908C6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grpc.Hub", "src\grpc\Hub\Grpc.Hub.csproj", "{19A7A53A-F22F-4361-90B7-0566174FDCB7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Grpc.Hub", "src\grpc\Hub\Grpc.Hub.csproj", "{19A7A53A-F22F-4361-90B7-0566174FDCB7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prototype", "samples\Prototype\Prototype.csproj", "{AF0F2E73-A0E7-4A56-B21B-4B458601D234}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Prototype", "samples\Prototype\Prototype.csproj", "{AF0F2E73-A0E7-4A56-B21B-4B458601D234}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

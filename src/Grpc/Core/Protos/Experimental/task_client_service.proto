@@ -135,6 +135,9 @@ service DurableTaskClient {
     // TODO: give a more efficient return type. Including only what has changed.
     rpc MonitorOrchestration (GetOrchestrationRequest) returns (stream OrchestrationInfoResponse);
 
+    // Waits for orchestration completion.
+    rpc WaitOrchestration(GetOrchestrationRequest) returns (OrchestrationInfoResponse);
+
     // Get info on multiple orchestrations.
     rpc QueryOrchestrations (QueryOrchestrationsRequest) returns (QueryOrchestrationsResponse);
 

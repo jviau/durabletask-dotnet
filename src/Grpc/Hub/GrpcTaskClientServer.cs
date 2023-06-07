@@ -73,6 +73,24 @@ public class GrpcTaskClientServer : DurableTaskClient.DurableTaskClientBase
     }
 
     /// <inheritdoc/>
+    public override async Task<OrchestrationInfoResponse> WaitOrchestration(
+        GetOrchestrationRequest request, ServerCallContext context)
+    {
+        Check.NotNull(request);
+        Check.NotNull(context);
+
+        string id = request.InstanceId;
+        OrchestrationExpandDetail expand = OrchestrationExpandDetailExtensions.FromProto(request.Expand);
+        C.OrchestrationState? state = await this.client.WaitForOrchestrationAsync(
+            id, executionId: null, TimeSpan.MaxValue, context.CancellationToken);
+
+        return state is null
+            ? throw new RpcException(
+                new(StatusCode.NotFound, $"Orchestration with instance ID {id} does not exist."))
+            : state.ToResponse(expand);
+    }
+
+    /// <inheritdoc/>
     public override async Task<Empty> RaiseOrchestrationEvent(RaiseEventRequest request, ServerCallContext context)
     {
         Check.NotNull(request);

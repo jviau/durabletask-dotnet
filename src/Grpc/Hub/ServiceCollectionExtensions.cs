@@ -33,7 +33,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddInMemoryOrchestrationService(this IServiceCollection services)
     {
         Check.NotNull(services);
-        services.TryAddSingleton<InMemoryInstanceStore>();
         services.TryAddSingleton<IOrchestrationService, InMemoryOrchestrationService>();
         services.TryAddSingleton(sp => (IOrchestrationServiceClient)sp.GetRequiredService<IOrchestrationService>());
         return services;

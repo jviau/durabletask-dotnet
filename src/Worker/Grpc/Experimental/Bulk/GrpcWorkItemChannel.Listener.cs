@@ -33,7 +33,7 @@ public partial class GrpcWorkItemChannel
             {
                 try
                 {
-                    AsyncServerStreamingCall<P.WorkItem> stream = await this.ConnectAsync(cancellation);
+                    using AsyncServerStreamingCall<P.WorkItem> stream = await this.ConnectAsync(cancellation);
                     await this.ProcessWorkItemsAsync(writer, stream, cancellation);
                 }
                 catch (RpcException) when (cancellation.IsCancellationRequested)
