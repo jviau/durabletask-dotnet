@@ -52,7 +52,6 @@ class OrchestratorActionCollection : ICollection<P.OrchestratorAction>
         IList<TaskMessage>? newActivityMessages = null;
         IList<TaskMessage>? newTimerMessages = null;
         IList<TaskMessage>? newOrchestratorMessages = null;
-        FailureDetails? failureDetails = null;
         continueAsNew = false;
 
         state.Status = this.SubStatus;
@@ -74,10 +73,7 @@ class OrchestratorActionCollection : ICollection<P.OrchestratorAction>
                     newTimerMessages ??= new List<TaskMessage>();
                     newTimerMessages.Add(new TaskMessage
                     {
-                        Event = new TimerFiredEvent(-1, e.FireAt)
-                        {
-                            TimerId = e.EventId,
-                        },
+                        Event = new TimerFiredEvent(-1, e.FireAt) { TimerId = e.EventId },
                         OrchestrationInstance = state.OrchestrationInstance,
                     });
                     break;
@@ -98,7 +94,7 @@ class OrchestratorActionCollection : ICollection<P.OrchestratorAction>
                             Version = state.Version,
                             TaskScheduleId = e.EventId,
                         },
-                        Tags = action.OrchestrationScheduled.GetTags(),
+                        Tags = action.OrchestrationScheduled.GetTags(state.Tags),
                     };
 
                     newOrchestratorMessages ??= new List<TaskMessage>();
@@ -109,12 +105,12 @@ class OrchestratorActionCollection : ICollection<P.OrchestratorAction>
                     });
 
                     break;
-                case EventRaisedEvent e:
+                case EventSentEvent e:
                     newOrchestratorMessages ??= new List<TaskMessage>();
                     newOrchestratorMessages.Add(new TaskMessage
                     {
                         Event = e,
-                        OrchestrationInstance = state.OrchestrationInstance,
+                        OrchestrationInstance = new OrchestrationInstance { InstanceId = e.InstanceId, },
                     });
                     break;
                 case ContinueAsNewEvent e:
@@ -173,12 +169,9 @@ class OrchestratorActionCollection : ICollection<P.OrchestratorAction>
 
                     break;
                 case ExecutionCompletedEvent e:
-                    // NOTE: Failure details aren't being stored in the orchestration history, currently.
-                    history = new ExecutionCompletedEvent(e.EventId, e.Result, e.OrchestrationStatus);
-                    failureDetails = e.FailureDetails;
                     if (state.ParentInstance is not null)
                     {
-                        ParentInstance p = state.ParentInstance; // assigning via pattern matching
+                        ParentInstance p = state.ParentInstance;
                         HistoryEvent completed = e.OrchestrationStatus switch
                         {
                             OrchestrationStatus.Failed => new SubOrchestrationInstanceFailedEvent(
@@ -223,7 +216,7 @@ class OrchestratorActionCollection : ICollection<P.OrchestratorAction>
             Input = state.Input,
             Output = state.Output,
             ScheduledStartTime = state.ExecutionStartedEvent?.ScheduledStartTime,
-            FailureDetails = failureDetails,
+            FailureDetails = state.FailureDetails,
         };
     }
 

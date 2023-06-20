@@ -2,20 +2,21 @@
 // Licensed under the MIT License.
 
 using System.Threading.Channels;
+using DurableTask.Core;
 
-namespace Microsoft.DurableTask.Worker.Grpc.Bulk;
+namespace Microsoft.DurableTask.Worker.OrchestrationServiceShim;
 
 /// <summary>
-/// A threading channel for a gRPC orchestrator request.
+/// An orchestration channel which shims over <see cref="OrchestrationRuntimeState"/>.
 /// </summary>
-partial class GrpcOrchestrationChannel
+partial class ShimOrchestrationChannel
 {
-    class GrpcWriter : ChannelWriter<OrchestrationMessage>
+    class ShimWriter : ChannelWriter<OrchestrationMessage>
     {
-        readonly GrpcOrchestrationChannel parent;
+        readonly ShimOrchestrationChannel parent;
         bool complete;
 
-        public GrpcWriter(GrpcOrchestrationChannel parent)
+        public ShimWriter(ShimOrchestrationChannel parent)
         {
             this.parent = parent;
         }
@@ -28,7 +29,7 @@ partial class GrpcOrchestrationChannel
                 return false; // ignore while we are replaying.
             }
 
-            this.parent.EnqueueAction(item);
+            this.parent.EnqueueMessage(item);
             return true;
         }
 

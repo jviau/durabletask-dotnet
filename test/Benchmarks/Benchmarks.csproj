@@ -15,10 +15,12 @@
   <ItemGroup>
     <ProjectReference Include="$(SrcRoot)Client/Core/Client.csproj" />
     <ProjectReference Include="$(SrcRoot)Client/Grpc/Client.Grpc.csproj" />
+    <ProjectReference Include="$(SrcRoot)Client/OrchestrationServiceClientShim/Client.OrchestrationServiceClientShim.csproj" />
     <ProjectReference Include="$(SrcRoot)Grpc/Hub/Grpc.Hub.csproj" />
     <ProjectReference Include="$(SrcRoot)Grpc/App/Grpc.App.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Core/Worker.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Grpc/Worker.Grpc.csproj" />
+    <ProjectReference Include="$(SrcRoot)Worker/OrchestrationServiceShim/Worker.OrchestrationServiceShim.csproj" />
   </ItemGroup>
 
 </Project>

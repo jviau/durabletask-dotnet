@@ -9,7 +9,7 @@ await using Runner runner = Parser.Default.ParseArguments<
     .MapResult<SelfHostedOptions, ExternalHostedOptions, BaselineOptions, Runner>(
         o => new SelfHostedRunner(o),
         o => new ExternallyHostedRunner(o),
-        o => new BaselineRunner(o),
+        o => BaselineRunner.Create(o),
         errors =>
         {
             foreach (Error e in errors)

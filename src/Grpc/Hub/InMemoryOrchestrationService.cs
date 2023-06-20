@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Threading.Channels;
 using DurableTask.Core;
+using DurableTask.Core.History;
 using Microsoft.DurableTask.Grpc.Hub.Implementation;
 
 namespace Microsoft.DurableTask.Grpc.Hub;

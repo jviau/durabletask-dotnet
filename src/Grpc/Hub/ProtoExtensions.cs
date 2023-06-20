@@ -251,6 +251,12 @@ static class ProtoExtensions
                 InstanceId = a.Options?.InstanceId ?? Guid.NewGuid().ToString("N"),
             },
             { TimerCreated: { } a } => new TimerCreatedEvent(action.Id, a.FireAt.ToDateTime()),
+            { EventSent: { } a } => new EventSentEvent(action.Id)
+            {
+                InstanceId = a.InstanceId,
+                Name = a.Name,
+                Input = a.Input,
+            },
             { Generic: { } a } => new GenericEvent(action.Id, a.Data), // TODO: fit name in here?
         };
     }

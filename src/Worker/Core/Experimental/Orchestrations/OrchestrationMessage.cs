@@ -206,4 +206,19 @@ public record SubOrchestrationScheduledOptions(
     /// Gets the sub-orchestrations metadata.
     /// </summary>
     public IDictionary<string, string> Metadata { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Builds the metadata to be used for calling a sub orchestration.
+    /// </summary>
+    /// <param name="parentMetadata">The metadata of the parent orchestration.</param>
+    /// <returns>The built metadata.</returns>
+    public IDictionary<string, string> BuildMetadata(IDictionary<string, string>? parentMetadata)
+    {
+        if (!this.InheritMetadata || parentMetadata is null)
+        {
+            return this.Metadata;
+        }
+
+        return parentMetadata.MergeLeft(this.Metadata);
+    }
 }

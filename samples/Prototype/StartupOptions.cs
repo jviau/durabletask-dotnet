@@ -45,5 +45,13 @@ class ExternalHostedOptions : PrototypeOptions
 [Verb("baseline", HelpText = "Runs the baseline DurableTask.Core perf.")]
 class BaselineOptions : StartupOptions
 {
-    public override string Description => "Baseline DurableTask.Core";
+    [Option('m', "mode", HelpText = "0 = DurableTask.Core. 1 = Channels")]
+    public int Mode { get; set; } = 0;
+
+    public override string Description => this.Mode switch
+    {
+        0 => "Baseline DurableTask.Core",
+        1 => "Baseline Channels",
+        _ => throw new ArgumentException(nameof(this.Mode)),
+    };
 }

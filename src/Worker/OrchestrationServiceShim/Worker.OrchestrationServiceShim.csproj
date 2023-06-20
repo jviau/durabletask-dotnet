@@ -1,20 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net6.0</TargetFrameworks>
-    <PackageDescription>The gRPC worker for the Durable Task Framework.</PackageDescription>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageDescription>The `IOrchestrationService` worker for the Durable Task Framework.</PackageDescription>
     <EnableStyleCop>true</EnableStyleCop>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Core/Worker.csproj" />
-    <ProjectReference Include="../../Grpc/Core/Grpc.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <SharedSection Include="Core" />
     <SharedSection Include="DependencyInjection" />
-    <SharedSection Include="Grpc" />
   </ItemGroup>
 
 </Project>

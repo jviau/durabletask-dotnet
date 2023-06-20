@@ -21,6 +21,7 @@ class InMemoryOrchestration
     List<TaskMessage> pendingMessages = new();
     int processingState; // 0 = not queued, not running. 1 = queued. 2 = running.
 
+    DateTimeOffset lastUpdateTime;
     OrchestrationRuntimeState? runtimeState;
     OrchestrationState? state;
 
@@ -73,7 +74,7 @@ class InMemoryOrchestration
                 {
                     CreatedTime = this.runtimeState.CreatedTime,
                     CompletedTime = this.runtimeState.CompletedTime,
-                    LastUpdatedTime = this.runtimeState.Events.Last().Timestamp,
+                    LastUpdatedTime = this.lastUpdateTime.UtcDateTime,
                     ScheduledStartTime = this.runtimeState.ExecutionStartedEvent!.ScheduledStartTime,
                     Name = this.runtimeState.Name,
                     Version = this.runtimeState.Version,
@@ -246,6 +247,7 @@ class InMemoryOrchestration
             }
 
             this.state = null;
+            this.lastUpdateTime = DateTimeOffset.UtcNow;
             this.runtimeState = new(newState.Events) { Status = newState.Status };
             if (this.runtimeState.OrchestrationStatus.IsTerminal())
             {

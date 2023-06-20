@@ -8,20 +8,17 @@
 
   <PropertyGroup>
     <ReleaseNotesFile Condition="'$(ReleaseNotesFile)' == ''">RELEASENOTES.md</ReleaseNotesFile>
+    <PackageReadmeFile Condition="'$(PackageReadmeFile)' == ''">README.md</PackageReadmeFile>
     <BeforePack>$(BeforePack);GetReleaseNotes;AddCommonReleaseNotes</BeforePack>
-    <PackageReadmeFile Condition="Exists('README.md')">README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <!-- Embed the SBOM manifest, which is generated as part of the "official" build -->
   <ItemGroup Condition="'$(Configuration)'=='Release'">
-    <Content Include="$(RepoRoot)_manifest/**" Pack="true" PackagePath="content/SBOM">
-      <Pack>true</Pack>
-      <PackagePath>content/SBOM</PackagePath>
-    </Content>
+    <Content Include="$(RepoRoot)_manifest/**" Pack="true" PackagePath="content/SBOM" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('README.md')">
-    <Content Include="README.md" Pack="true" PackagePath="/" />
+  <ItemGroup Condition="Exists('$(PackageReadmeFile)')">
+    <Content Include="$(PackageReadmeFile)" Pack="true" PackagePath="/" />
   </ItemGroup>
 
   <!-- This target lets us define a release notes file per package. -->

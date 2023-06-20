@@ -39,7 +39,6 @@ static class OrchestrationExecutionResultExtensions
         IList<TaskMessage>? newActivityMessages = null;
         IList<TaskMessage>? newTimerMessages = null;
         IList<TaskMessage>? newOrchestratorMessages = null;
-        FailureDetails? failureDetails = null;
         continueAsNew = false;
 
         runtimeState.Status = result.CustomStatus;
@@ -142,7 +141,7 @@ static class OrchestrationExecutionResultExtensions
                 newOrchestratorMessages.Add(new TaskMessage
                 {
                     Event = sendEvent,
-                    OrchestrationInstance = runtimeState.OrchestrationInstance,
+                    OrchestrationInstance = new OrchestrationInstance { InstanceId = sendEvent.InstanceId, },
                 });
             }
             else if (action is OrchestrationCompleteOrchestratorAction completeAction)
@@ -185,16 +184,11 @@ static class OrchestrationExecutionResultExtensions
                     return;
                 }
 
-                if (completeAction.OrchestrationStatus == OrchestrationStatus.Failed)
-                {
-                    failureDetails = completeAction.FailureDetails;
-                }
-
-                // NOTE: Failure details aren't being stored in the orchestration history, currently.
                 runtimeState.AddEvent(new ExecutionCompletedEvent(
                     completeAction.Id,
                     completeAction.Result,
-                    completeAction.OrchestrationStatus));
+                    completeAction.OrchestrationStatus,
+                    completeAction.FailureDetails));
 
                 // CONSIDER: Add support for fire-and-forget sub-orchestrations where
                 //           we don't notify the parent that the orchestration completed.
@@ -251,7 +245,7 @@ static class OrchestrationExecutionResultExtensions
             Input = runtimeState.Input,
             Output = runtimeState.Output,
             ScheduledStartTime = runtimeState.ExecutionStartedEvent?.ScheduledStartTime,
-            FailureDetails = failureDetails,
+            FailureDetails = runtimeState.FailureDetails,
         };
     }
 }

@@ -1,8 +1,6 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Xml.Linq;
-using DurableTask.Core;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
