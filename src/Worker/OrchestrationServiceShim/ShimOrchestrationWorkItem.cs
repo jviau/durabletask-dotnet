@@ -29,7 +29,7 @@ class ShimOrchestrationWorkItem : OrchestrationWorkItem
     {
         this.service = Check.NotNull(service);
         this.inner = Check.NotNull(inner);
-        this.channel = new ShimOrchestrationChannel(inner.OrchestrationRuntimeState);
+        this.channel = new ShimOrchestrationChannel(service, inner);
     }
 
     /// <inheritdoc/>
@@ -53,50 +53,12 @@ class ShimOrchestrationWorkItem : OrchestrationWorkItem
     {
         try
         {
-            if (this.channel.Abort)
-            {
-                await this.service.AbandonTaskOrchestrationWorkItemAsync(this.inner);
-            }
-            else
-            {
-                OrchestrationRuntimeState state = this.channel.CompleteExecution();
-                this.inner.OrchestrationRuntimeState = state;
-                await this.service.CompleteTaskOrchestrationWorkItemAsync(
-                    this.inner,
-                    state,
-                    this.channel.ActivityMessages,
-                    this.channel.OrchestratorMessages,
-                    this.channel.TimerMessages,
-                    continuedAsNewMessage: null,
-                    BuildState(state));
-            }
+            cancellation.ThrowIfCancellationRequested();
+            await this.channel.CompleteExecutionAsync();
         }
         finally
         {
             await this.service.ReleaseTaskOrchestrationWorkItemAsync(this.inner);
         }
-    }
-
-    static OrchestrationState BuildState(OrchestrationRuntimeState runtimeState)
-    {
-        return new()
-        {
-            OrchestrationInstance = runtimeState.OrchestrationInstance,
-            ParentInstance = runtimeState.ParentInstance,
-            Name = runtimeState.Name,
-            Version = runtimeState.Version,
-            Status = runtimeState.Status,
-            Tags = runtimeState.Tags,
-            OrchestrationStatus = runtimeState.OrchestrationStatus,
-            CreatedTime = runtimeState.CreatedTime,
-            CompletedTime = runtimeState.CompletedTime,
-            LastUpdatedTime = DateTime.UtcNow,
-            Size = runtimeState.Size,
-            CompressedSize = runtimeState.CompressedSize,
-            Input = runtimeState.Input,
-            Output = runtimeState.Output,
-            ScheduledStartTime = runtimeState.ExecutionStartedEvent?.ScheduledStartTime,
-            FailureDetails = runtimeState.FailureDetails,
-        };
     }
 }

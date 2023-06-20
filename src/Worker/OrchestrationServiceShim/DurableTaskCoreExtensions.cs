@@ -13,6 +13,17 @@ namespace Microsoft.DurableTask.Worker.OrchestrationServiceShim;
 static class DurableTaskCoreExtensions
 {
     /// <summary>
+    /// Checks if an orchestration state is terminal or not.
+    /// </summary>
+    /// <param name="state">The state to check.</param>
+    /// <returns><c>true</c> for terminal state, <c>false</c> otherwise.</returns>
+    public static bool IsTerminal(this OrchestrationStatus state)
+    {
+        return state is OrchestrationStatus.Canceled or OrchestrationStatus.Completed
+            or OrchestrationStatus.Terminated or OrchestrationStatus.Failed;
+    }
+
+    /// <summary>
     /// Gets the <see cref="OrchestrationStatus"/> from a <see cref="ExecutionCompleted"/>.
     /// </summary>
     /// <param name="completed">The completed event.</param>
@@ -212,11 +223,16 @@ static class DurableTaskCoreExtensions
     /// Prepare this work item for execution.
     /// </summary>
     /// <param name="workItem">The work item to run.</param>
-    public static void PrepareForRun(this TaskOrchestrationWorkItem workItem)
+    /// <param name="isSession">True if this is preparing for a session continuation, false otherwise.</param>
+    public static void PrepareForRun(this TaskOrchestrationWorkItem workItem, bool isSession = false)
     {
         Check.NotNull(workItem);
 
-        workItem.OrchestrationRuntimeState.AddEvent(new OrchestratorStartedEvent(-1));
+        if (!isSession)
+        {
+            workItem.OrchestrationRuntimeState.AddEvent(new OrchestratorStartedEvent(-1));
+        }
+
         foreach (TaskMessage message in workItem.FilterAndSortMessages())
         {
             workItem.OrchestrationRuntimeState.AddEvent(message.Event);
@@ -287,5 +303,34 @@ static class DurableTaskCoreExtensions
 
         return left.InstanceId.Equals(right.InstanceId, StringComparison.Ordinal)
             && (!exact || left.ExecutionId.Equals(right.ExecutionId, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Creates an <see cref="OrchestrationState"/> from a <see cref="OrchestrationRuntimeState"/>.
+    /// </summary>
+    /// <param name="runtimeState">The runtime state.</param>
+    /// <returns>The created state.</returns>
+    public static OrchestrationState GetState(this OrchestrationRuntimeState runtimeState)
+    {
+        Check.NotNull(runtimeState);
+        return new()
+        {
+            OrchestrationInstance = runtimeState.OrchestrationInstance,
+            ParentInstance = runtimeState.ParentInstance,
+            Name = runtimeState.Name,
+            Version = runtimeState.Version,
+            Status = runtimeState.Status,
+            Tags = runtimeState.Tags,
+            OrchestrationStatus = runtimeState.OrchestrationStatus,
+            CreatedTime = runtimeState.CreatedTime,
+            CompletedTime = runtimeState.CompletedTime,
+            LastUpdatedTime = DateTime.UtcNow,
+            Size = runtimeState.Size,
+            CompressedSize = runtimeState.CompressedSize,
+            Input = runtimeState.Input,
+            Output = runtimeState.Output,
+            ScheduledStartTime = runtimeState.ExecutionStartedEvent?.ScheduledStartTime,
+            FailureDetails = runtimeState.FailureDetails,
+        };
     }
 }

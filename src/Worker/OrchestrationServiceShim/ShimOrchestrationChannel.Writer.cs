@@ -40,7 +40,7 @@ partial class ShimOrchestrationChannel
                 return false;
             }
 
-            this.parent.Abort = error is not null;
+            this.parent.abort = error is not null;
             this.complete = true;
             return true;
         }

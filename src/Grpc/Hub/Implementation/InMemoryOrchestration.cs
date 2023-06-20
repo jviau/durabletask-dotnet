@@ -5,7 +5,6 @@ using System.Threading.Channels;
 using DurableTask.Core;
 using DurableTask.Core.History;
 using DurableTask.Core.Query;
-using Grpc.Core;
 
 namespace Microsoft.DurableTask.Grpc.Hub.Implementation;
 
@@ -17,6 +16,7 @@ class InMemoryOrchestration
     readonly object sync = new();
     readonly TaskCompletionSource tcs = new();
     readonly ChannelWriter<InMemoryOrchestration> queue;
+    readonly AsyncManualResetEvent messagesAvailable = new(set: false);
 
     List<TaskMessage> pendingMessages = new();
     int processingState; // 0 = not queued, not running. 1 = queued. 2 = running.
@@ -115,8 +115,9 @@ class InMemoryOrchestration
     /// <summary>
     /// Locks this orchestration for processing.
     /// </summary>
+    /// <param name="useSessions">True to enabled extended sessions, false otherwise.</param>
     /// <returns>The work item for processing.</returns>
-    public TaskOrchestrationWorkItem LockForProcessing()
+    public TaskOrchestrationWorkItem LockForProcessing(bool useSessions = false)
     {
         lock (this.sync)
         {
@@ -131,7 +132,7 @@ class InMemoryOrchestration
             }
 
             this.processingState = 2;
-            return new WorkItem(this);
+            return new WorkItem(this, useSessions);
         }
     }
 
@@ -195,6 +196,7 @@ class InMemoryOrchestration
                 this.runtimeState = new(); // reset.
             }
 
+            this.messagesAvailable.Set();
             if (this.processingState == 0)
             {
                 // 0 = not running, not processing
@@ -279,6 +281,22 @@ class InMemoryOrchestration
         return default;
     }
 
+    IList<TaskMessage> CollectMessages()
+    {
+        lock (this.sync)
+        {
+            if (this.pendingMessages.Count == 0)
+            {
+                return Array.Empty<TaskMessage>();
+            }
+
+            IList<TaskMessage> messages = this.pendingMessages;
+            this.pendingMessages = new();
+            this.messagesAvailable.Reset();
+            return messages;
+        }
+    }
+
     /// <summary>
     /// A query record used to see if this orchestration matches some defined constraints.
     /// </summary>
@@ -328,15 +346,22 @@ class InMemoryOrchestration
         /// Initializes a new instance of the <see cref="WorkItem"/> class.
         /// </summary>
         /// <param name="orchestration">The orchestration this work item is for.</param>
-        public WorkItem(InMemoryOrchestration orchestration)
+        /// <param name="useSessions">Whether to use extended sessions or not.</param>
+        public WorkItem(InMemoryOrchestration orchestration, bool useSessions)
         {
             lock (orchestration.sync)
             {
                 this.orchestration = Check.NotNull(orchestration);
                 this.InstanceId = this.orchestration.Id;
                 this.LockedUntilUtc = DateTime.MaxValue;
-                this.NewMessages = this.orchestration.pendingMessages;
-                this.orchestration.pendingMessages = new();
+                this.NewMessages = this.orchestration.CollectMessages();
+
+                if (useSessions)
+                {
+                    this.Session = new Session(orchestration);
+                    this.IsExtendedSession = true;
+                }
+
                 this.RenewRuntimeState();
             }
         }
@@ -359,6 +384,7 @@ class InMemoryOrchestration
         public void Commit()
         {
             this.orchestration.CommitRuntimeState(this.OrchestrationRuntimeState);
+            this.RenewRuntimeState();
         }
 
         /// <summary>
@@ -385,6 +411,29 @@ class InMemoryOrchestration
             }
 
             this.OrchestrationRuntimeState = state;
+        }
+    }
+
+    sealed class Session : IOrchestrationSession
+    {
+        readonly InMemoryOrchestration orchestration;
+
+        public Session(InMemoryOrchestration orchestration)
+        {
+            this.orchestration = orchestration;
+        }
+
+        public async Task<IList<TaskMessage>?> FetchNewOrchestrationMessagesAsync(TaskOrchestrationWorkItem workItem)
+        {
+            await Task.WhenAny(this.orchestration.Completion, this.orchestration.messagesAvailable.WaitAsync());
+            if (this.orchestration.Completion.IsCompleted)
+            {
+                // Force the session to end if this orchestration is complete.
+                return null;
+            }
+
+            IList<TaskMessage> messages = this.orchestration.CollectMessages();
+            return messages.Count == 0 ? null : messages;
         }
     }
 }

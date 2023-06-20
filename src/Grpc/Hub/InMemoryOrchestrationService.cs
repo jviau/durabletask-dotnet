@@ -4,7 +4,6 @@
 using System.Globalization;
 using System.Threading.Channels;
 using DurableTask.Core;
-using DurableTask.Core.History;
 using Microsoft.DurableTask.Grpc.Hub.Implementation;
 
 namespace Microsoft.DurableTask.Grpc.Hub;
@@ -14,8 +13,18 @@ namespace Microsoft.DurableTask.Grpc.Hub;
 /// </summary>
 public partial class InMemoryOrchestrationService : IOrchestrationService
 {
+    readonly bool useSessions;
     readonly OrchestrationStore store = new();
     Channel<TaskMessage> activities = Channel.CreateUnbounded<TaskMessage>();
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InMemoryOrchestrationService"/> class.
+    /// </summary>
+    /// <param name="useSessions">True to use sessions, false otherwise.</param>
+    public InMemoryOrchestrationService(bool useSessions = false)
+    {
+        this.useSessions = useSessions;
+    }
 
     /// <inheritdoc/>
     public int TaskOrchestrationDispatcherCount => 1;
@@ -142,7 +151,7 @@ public partial class InMemoryOrchestrationService : IOrchestrationService
         TimeSpan receiveTimeout, CancellationToken cancellationToken)
     {
         InMemoryOrchestration orchestration = await this.store.DequeueAsync(cancellationToken);
-        return orchestration.LockForProcessing();
+        return orchestration.LockForProcessing(this.useSessions);
     }
 
     /// <inheritdoc/>

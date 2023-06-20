@@ -54,15 +54,15 @@ static partial class BaselineRunner
         {
             OrchestrationStatus[] statuses = new[]
             {
-            OrchestrationStatus.Completed,
-            OrchestrationStatus.Failed,
-            OrchestrationStatus.Pending,
-            OrchestrationStatus.Suspended,
-            OrchestrationStatus.Running,
-            OrchestrationStatus.Canceled,
-            OrchestrationStatus.ContinuedAsNew,
-            OrchestrationStatus.Terminated,
-        };
+                OrchestrationStatus.Completed,
+                OrchestrationStatus.Failed,
+                OrchestrationStatus.Pending,
+                OrchestrationStatus.Suspended,
+                OrchestrationStatus.Running,
+                OrchestrationStatus.Canceled,
+                OrchestrationStatus.ContinuedAsNew,
+                OrchestrationStatus.Terminated,
+            };
 
             PurgeInstanceFilter filter = new(createdTimeFrom: DateTime.MinValue, null, statuses);
             return this.purgeClient.PurgeInstanceStateAsync(filter);

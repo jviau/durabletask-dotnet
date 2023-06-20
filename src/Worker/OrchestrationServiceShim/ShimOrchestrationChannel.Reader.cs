@@ -19,17 +19,26 @@ partial class ShimOrchestrationChannel
 
         int next;
         IList<HistoryEvent>? events;
+        OrchestrationMessage? explicitMessage;
 
         public ShimReader(ShimOrchestrationChannel parent)
         {
             this.parent = parent;
-            this.events = parent.state.PastEvents;
+            this.events = parent.State.PastEvents;
         }
 
-        public bool IsReplaying => this.events == this.parent.state.PastEvents;
+        public bool IsReplaying => this.events == this.parent.State.PastEvents;
 
         public override bool TryRead([MaybeNullWhen(false)] out OrchestrationMessage item)
         {
+            if (this.explicitMessage is { } message)
+            {
+                // Explicit messages are used to send messages not part of the runtime state.
+                this.explicitMessage = null;
+                item = message;
+                return true;
+            }
+
             if (this.events is null)
             {
                 // we have finished processing both past and new events.
@@ -58,15 +67,28 @@ partial class ShimOrchestrationChannel
 
         public override ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
         {
-            return new(this.events is not null);
+            async Task<bool> TryRenewSessionAsync(CancellationToken cancellationToken = default)
+            {
+                if (await this.parent.TryRenewSessionAsync(cancellationToken))
+                {
+                    this.explicitMessage = new OrchestratorStarted(DateTimeOffset.UtcNow);
+                    this.events = this.parent.State.NewEvents;
+                    this.next = 0;
+                    return true;
+                }
+
+                return false;
+            }
+
+            return this.events is null ? new(TryRenewSessionAsync(cancellationToken)) : new(true);
         }
 
         bool ProgressEvents()
         {
-            if (this.events == this.parent.state.PastEvents)
+            if (this.events == this.parent.State.PastEvents)
             {
                 this.next = 0;
-                IList<HistoryEvent> candidate = this.parent.state.NewEvents;
+                IList<HistoryEvent> candidate = this.parent.State.NewEvents;
                 if (candidate.Count == 0)
                 {
                     // if there are no new events to read, lets just end this event queue now.
@@ -74,11 +96,11 @@ partial class ShimOrchestrationChannel
                     return false;
                 }
 
-                this.events = this.parent.state.NewEvents;
+                this.events = this.parent.State.NewEvents;
                 return true;
             }
 
-            if (this.events == this.parent.state.NewEvents)
+            if (this.events == this.parent.State.NewEvents)
             {
                 this.events = null;
                 this.next = 0;

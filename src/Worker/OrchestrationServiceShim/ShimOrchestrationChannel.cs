@@ -8,41 +8,32 @@ using DurableTask.Core.History;
 namespace Microsoft.DurableTask.Worker.OrchestrationServiceShim;
 
 /// <summary>
-/// An orchestration channel which shims over <see cref="OrchestrationRuntimeState"/>.
+/// An orchestration channel which shims over <see cref="TaskOrchestrationWorkItem"/>.
 /// </summary>
 partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
 {
-    OrchestrationRuntimeState state;
+    readonly IOrchestrationService service;
+    readonly TaskOrchestrationWorkItem workItem;
+
     List<OrchestrationMessage>? pendingMessages;
     List<TaskMessage>? activityMessages;
     List<TaskMessage>? orchestratorMessages;
     List<TaskMessage>? timerMessages;
 
+    bool abort;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ShimOrchestrationChannel"/> class.
     /// </summary>
-    /// <param name="runtimeState">The orchestration runtime state.</param>
-    public ShimOrchestrationChannel(OrchestrationRuntimeState runtimeState)
+    /// <param name="service">The orchestration service.</param>
+    /// <param name="workItem">The orchestration work item.</param>
+    public ShimOrchestrationChannel(IOrchestrationService service, TaskOrchestrationWorkItem workItem)
     {
-        this.state = Check.NotNull(runtimeState);
+        this.service = Check.NotNull(service);
+        this.workItem = Check.NotNull(workItem);
         this.Reader = new ShimReader(this);
         this.Writer = new ShimWriter(this);
     }
-
-    /// <summary>
-    /// Gets the list of activity messages.
-    /// </summary>
-    public List<TaskMessage> ActivityMessages => this.activityMessages ??= new();
-
-    /// <summary>
-    /// Gets the list of orchestrator messages.
-    /// </summary>
-    public List<TaskMessage> OrchestratorMessages => this.orchestratorMessages ??= new();
-
-    /// <summary>
-    /// Gets the list of orchestrator messages.
-    /// </summary>
-    public List<TaskMessage> TimerMessages => this.timerMessages ??= new();
 
     /// <summary>
     /// Gets a value indicating whether this channel is replaying or not.
@@ -50,33 +41,76 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
     public bool IsReplaying => ((ShimReader)this.Reader).IsReplaying;
 
     /// <summary>
-    /// Gets a value indicating whether to abort this orchestration.
-    /// </summary>
-    public bool Abort { get; private set; }
-
-    /// <summary>
     /// Gets a value indicating whether this orchestration was continued as new.
     /// </summary>
     public bool ContinueAsNew { get; private set; }
 
     /// <summary>
+    /// Gets the list of activity messages.
+    /// </summary>
+    List<TaskMessage> ActivityMessages => this.activityMessages ??= new();
+
+    /// <summary>
+    /// Gets the list of orchestrator messages.
+    /// </summary>
+    List<TaskMessage> OrchestratorMessages => this.orchestratorMessages ??= new();
+
+    /// <summary>
+    /// Gets the list of orchestrator messages.
+    /// </summary>
+    List<TaskMessage> TimerMessages => this.timerMessages ??= new();
+
+    OrchestrationRuntimeState State
+    {
+        get => this.workItem.OrchestrationRuntimeState;
+        set => this.workItem.OrchestrationRuntimeState = value;
+    }
+
+    /// <summary>
     /// Completes the current execution, processing all events.
     /// </summary>
-    /// <returns>The <see cref="OrchestrationRuntimeState"/> with new events added.</returns>
-    public OrchestrationRuntimeState CompleteExecution()
+    /// <param name="isSession">True if this is a session iteration, false otherwise.</param>
+    /// <returns>A task that completes when this orchestration execution is committed.</returns>
+    public async Task CompleteExecutionAsync(bool isSession = false)
     {
+        if (this.abort)
+        {
+            await this.service.AbandonTaskOrchestrationWorkItemAsync(this.workItem);
+        }
+
+        bool needComplete = false;
         if (this.pendingMessages is not null)
         {
             foreach (OrchestrationMessage message in this.pendingMessages)
             {
+                needComplete = true;
                 this.ProcessMessage(message);
             }
-
-            this.state.AddEvent(new OrchestratorCompletedEvent(-1));
-            this.pendingMessages.Clear();
         }
 
-        return this.state;
+        if (!isSession)
+        {
+            needComplete = true;
+            this.State.AddEvent(new OrchestratorCompletedEvent(-1));
+        }
+
+        this.pendingMessages = null;
+        if (needComplete)
+        {
+            // We have at least 1 new event or message to send.
+            await this.service.CompleteTaskOrchestrationWorkItemAsync(
+                this.workItem,
+                this.State,
+                this.ActivityMessages,
+                this.OrchestratorMessages,
+                this.TimerMessages,
+                continuedAsNewMessage: null,
+                this.State.GetState());
+
+            this.activityMessages = null;
+            this.orchestratorMessages = null;
+            this.timerMessages = null;
+        }
     }
 
     static OrchestrationMessage ToMessage(HistoryEvent historyEvent)
@@ -138,7 +172,7 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
                 this.ActivityMessages.Add(new TaskMessage
                 {
                     Event = history,
-                    OrchestrationInstance = this.state.OrchestrationInstance,
+                    OrchestrationInstance = this.State.OrchestrationInstance,
                 });
                 break;
             case TimerScheduled m:
@@ -147,7 +181,7 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
                 this.TimerMessages.Add(new TaskMessage
                 {
                     Event = new TimerFiredEvent(-1, fireAt) { TimerId = m.Id },
-                    OrchestrationInstance = this.state.OrchestrationInstance,
+                    OrchestrationInstance = this.State.OrchestrationInstance,
                 });
                 break;
             case SubOrchestrationScheduled m:
@@ -171,12 +205,12 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
                     },
                     ParentInstance = new ParentInstance
                     {
-                        OrchestrationInstance = this.state.OrchestrationInstance,
-                        Name = this.state.Name,
-                        Version = this.state.Version,
+                        OrchestrationInstance = this.State.OrchestrationInstance,
+                        Name = this.State.Name,
+                        Version = this.State.Version,
                         TaskScheduleId = scheduled.EventId,
                     },
-                    Tags = m.Options?.BuildMetadata(this.state.Tags),
+                    Tags = m.Options?.BuildMetadata(this.State.Tags),
                 };
 
                 this.OrchestratorMessages.Add(new TaskMessage
@@ -200,19 +234,19 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
                 });
                 break;
             case ContinueAsNew m:
-                OrchestrationRuntimeState newState = new() { Status = this.state.Status, };
+                OrchestrationRuntimeState newState = new() { Status = this.State.Status, };
                 newState.AddEvent(new OrchestratorStartedEvent(01));
                 newState.AddEvent(new ExecutionStartedEvent(-1, m.Result)
                 {
                     OrchestrationInstance = new()
                     {
-                        InstanceId = this.state.OrchestrationInstance!.InstanceId,
+                        InstanceId = this.State.OrchestrationInstance!.InstanceId,
                         ExecutionId = Guid.NewGuid().ToString(),
                     },
-                    Tags = this.state.Tags,
-                    ParentInstance = this.state.ParentInstance,
-                    Name = this.state.Name,
-                    Version = m.Version ?? this.state.Version,
+                    Tags = this.State.Tags,
+                    ParentInstance = this.State.ParentInstance,
+                    Name = this.State.Name,
+                    Version = m.Version ?? this.State.Version,
                 });
 
                 foreach (OrchestrationMessage c in m.CarryOverMessages)
@@ -226,13 +260,13 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
                     newState.AddEvent(new EventRaisedEvent(e.Id, e.Input) { Name = e.Name });
                 }
 
-                this.state = newState;
+                this.State = newState;
                 this.ContinueAsNew = true;
                 return;
             case ExecutionTerminated m:
                 // TODO: fill out FailureDetails?
                 history = new ExecutionCompletedEvent(m.Id, m.Result, OrchestrationStatus.Terminated);
-                if (this.state.ParentInstance is { } p1)
+                if (this.State.ParentInstance is { } p1)
                 {
                     HistoryEvent completed = new SubOrchestrationInstanceFailedEvent(
                         -1, p1.TaskScheduleId, m.Result, null, null);
@@ -246,7 +280,7 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
                 break;
             case ExecutionCompleted m:
                 history = new ExecutionCompletedEvent(m.Id, m.Result, m.GetStatus());
-                if (this.state.ParentInstance is { } p2)
+                if (this.State.ParentInstance is { } p2)
                 {
                     HistoryEvent completed = m switch
                     {
@@ -267,6 +301,29 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
                 throw new NotSupportedException();
         }
 
-        this.state.AddEvent(history);
+        this.State.AddEvent(history);
+    }
+
+    async Task<bool> TryRenewSessionAsync(CancellationToken cancellation)
+    {
+        if (this.abort)
+        {
+            return false;
+        }
+
+        if (this.workItem.IsExtendedSession && this.workItem.Session is { } session)
+        {
+            await this.CompleteExecutionAsync(isSession: true);
+            IList<TaskMessage> messages = await session.FetchNewOrchestrationMessagesAsync(this.workItem);
+            if (messages is { Count: > 0 })
+            {
+                this.State.NewEvents.Clear();
+                this.workItem.NewMessages = messages;
+                this.workItem.PrepareForRun(isSession: true);
+                return true;
+            }
+        }
+
+        return false;
     }
 }

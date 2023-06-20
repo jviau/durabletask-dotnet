@@ -15,18 +15,19 @@ static class OrchestrationService
     public abstract record Kind(string Name, ILoggerFactory? LoggerFactory)
     {
         public static Kind Default(string name, ILoggerFactory? loggerFactory = null)
-            => InMemory(name, loggerFactory);
+            => InMemory(name, loggerFactory, useSessions: true);
 
         public static Kind AzureStorage(string name, ILoggerFactory? loggerFactory = null)
             => new AzureStorageKind(name, loggerFactory);
 
-        public static Kind InMemory(string name, ILoggerFactory? loggerFactory = null)
-            => new InMemoryKind(name, loggerFactory);
+        public static Kind InMemory(string name, ILoggerFactory? loggerFactory = null, bool useSessions = false)
+            => new InMemoryKind(name, loggerFactory, useSessions);
     }
 
     internal record AzureStorageKind(string Name, ILoggerFactory? LoggerFactory) : Kind(Name, LoggerFactory);
 
-    internal record InMemoryKind(string Name, ILoggerFactory? LoggerFactory) : Kind(Name, LoggerFactory);
+    internal record InMemoryKind(string Name, ILoggerFactory? LoggerFactory, bool UseSessions)
+        : Kind(Name, LoggerFactory);
 
     internal static AzureStorageOrchestrationService CreateAzureStorage(
         string name, ILoggerFactory? loggerFactory = null)
@@ -43,9 +44,9 @@ static class OrchestrationService
         return new AzureStorageOrchestrationService(settings);
     }
 
-    internal static InMemoryOrchestrationService CreateInMemory()
+    internal static InMemoryOrchestrationService CreateInMemory(bool useSessions = false)
     {
-        return new InMemoryOrchestrationService();
+        return new InMemoryOrchestrationService(useSessions);
     }
 
     internal static IOrchestrationService Create(Kind kind)
@@ -53,7 +54,7 @@ static class OrchestrationService
         ArgumentNullException.ThrowIfNull(kind);
         return kind switch
         {
-            InMemoryKind => CreateInMemory(),
+            InMemoryKind k => CreateInMemory(k.UseSessions),
             AzureStorageKind k => CreateAzureStorage(k.Name, k.LoggerFactory),
             _ => throw new NotSupportedException(),
         };
