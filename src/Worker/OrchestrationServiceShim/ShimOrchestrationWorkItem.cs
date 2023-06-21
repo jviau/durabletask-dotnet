@@ -3,7 +3,6 @@
 
 using System.Threading.Channels;
 using DurableTask.Core;
-using DurableTask.Core.History;
 
 namespace Microsoft.DurableTask.Worker.OrchestrationServiceShim;
 
@@ -12,9 +11,11 @@ namespace Microsoft.DurableTask.Worker.OrchestrationServiceShim;
 /// </summary>
 class ShimOrchestrationWorkItem : OrchestrationWorkItem
 {
+    readonly CancellationTokenSource cts = new();
     readonly IOrchestrationService service;
     readonly TaskOrchestrationWorkItem inner;
     readonly ShimOrchestrationChannel channel;
+    readonly Task lockRenewal;
 
     ParentOrchestrationInstance? parent;
 
@@ -30,6 +31,15 @@ class ShimOrchestrationWorkItem : OrchestrationWorkItem
         this.service = Check.NotNull(service);
         this.inner = Check.NotNull(inner);
         this.channel = new ShimOrchestrationChannel(service, inner);
+
+        if (inner.LockedUntilUtc < DateTime.MaxValue)
+        {
+            this.lockRenewal = this.RenewLockAsync(this.cts.Token);
+        }
+        else
+        {
+            this.lockRenewal = Task.CompletedTask;
+        }
     }
 
     /// <inheritdoc/>
@@ -53,12 +63,45 @@ class ShimOrchestrationWorkItem : OrchestrationWorkItem
     {
         try
         {
+            if (!this.cts.IsCancellationRequested)
+            {
+                this.cts.Cancel();
+            }
+
+            await this.lockRenewal;
             cancellation.ThrowIfCancellationRequested();
             await this.channel.CompleteExecutionAsync();
         }
         finally
         {
             await this.service.ReleaseTaskOrchestrationWorkItemAsync(this.inner);
+        }
+    }
+
+    async Task RenewLockAsync(CancellationToken cancellation)
+    {
+        TimeSpan minRenewalInterval = TimeSpan.FromSeconds(5); // prevents excessive retries if clocks are off
+        TimeSpan maxRenewalInterval = TimeSpan.FromSeconds(30);
+        while (!cancellation.IsCancellationRequested)
+        {
+            TimeSpan delay = this.inner.LockedUntilUtc - DateTime.UtcNow - TimeSpan.FromSeconds(30);
+            if (delay < minRenewalInterval)
+            {
+                delay = minRenewalInterval;
+            }
+            else if (delay > maxRenewalInterval)
+            {
+                delay = maxRenewalInterval;
+            }
+
+            try
+            {
+                await Task.Delay(delay, cancellation);
+                await this.service.RenewTaskOrchestrationWorkItemLockAsync(this.inner);
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
     }
 }

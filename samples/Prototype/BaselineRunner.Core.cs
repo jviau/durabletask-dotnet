@@ -30,7 +30,7 @@ static partial class BaselineRunner
             IHost host = Host.CreateDefaultBuilder()
                 .ConfigureServices(services =>
                 {
-                    services.AddOrchestrationService(OrchestrationService.Kind.Default("baseline"));
+                    services.AddOrchestrationService("baseline");
                 })
                 .ConfigureTaskHubWorker(builder =>
                 {

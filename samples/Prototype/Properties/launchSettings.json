@@ -2,7 +2,10 @@
   "profiles": {
     "Prototype": {
       "commandName": "Project",
-      "commandLineArgs": "baseline -c 1 -d 5 -m 0"
+      "commandLineArgs": "baseline -c 1 -d 5 -m 1",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
     }
   }
 }

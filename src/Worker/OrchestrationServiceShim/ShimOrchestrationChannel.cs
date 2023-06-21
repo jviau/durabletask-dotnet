@@ -311,7 +311,7 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
             return false;
         }
 
-        if (this.workItem.IsExtendedSession && this.workItem.Session is { } session)
+        if (this.workItem.Session is { } session)
         {
             await this.CompleteExecutionAsync(isSession: true);
             IList<TaskMessage> messages = await session.FetchNewOrchestrationMessagesAsync(this.workItem);

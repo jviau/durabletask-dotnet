@@ -29,7 +29,7 @@ public static class GrpcHost
             .UseUrls(address)
             .ConfigureServices(services =>
             {
-                services.AddOrchestrationService(OrchestrationService.Kind.Default(name));
+                services.AddOrchestrationService(name);
                 services.AddGrpc();
                 services.AddSingleton<BulkGrpcTaskHubServer>();
             })
@@ -58,7 +58,7 @@ public static class GrpcHost
             .UseUrls(address)
             .ConfigureServices(services =>
             {
-                services.AddOrchestrationService(OrchestrationService.Kind.Default("stream"));
+                services.AddOrchestrationService("stream");
                 services.AddGrpc();
                 services.AddTaskHubGrpc();
             })
@@ -81,7 +81,7 @@ public static class GrpcHost
         Action<IDurableTaskWorkerBuilder> configureWorker, Action<IDurableTaskClientBuilder> configureClient)
     {
         return Host.CreateDefaultBuilder()
-            .ConfigureLogging(b => b.ClearProviders())
+            .ConfigureLogging(b => b.SetMinimumLevel(LogLevel.Warning))
             .ConfigureServices(services =>
             {
                 services.AddDurableTaskWorker(b =>

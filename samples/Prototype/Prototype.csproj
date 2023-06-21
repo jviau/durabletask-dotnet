@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Microsoft.DurableTask.Prototype</RootNamespace>
+    <UserSecretsId>94bd7093-2df8-462c-bbf1-fffa55f0287f</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
