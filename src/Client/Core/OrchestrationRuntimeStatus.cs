@@ -50,3 +50,24 @@ public enum OrchestrationRuntimeStatus
     /// </summary>
     Suspended,
 }
+
+/// <summary>
+/// Extensions for <see cref="OrchestrationRuntimeStatus"/>.
+/// </summary>
+public static class OrchestrationRuntimeStatusExtensions
+{
+    /// <summary>
+    /// Checks in a <see cref="OrchestrationRuntimeStatus"/> is a terminal state.
+    /// </summary>
+    /// <param name="status">The status to check.</param>
+    /// <returns>True if terminal, false otherwise.</returns>
+    public static bool IsTerminal(this OrchestrationRuntimeStatus status)
+    {
+#pragma warning disable CS0618 // Type or member is obsolete
+        return status is OrchestrationRuntimeStatus.Completed
+            or OrchestrationRuntimeStatus.Terminated
+            or OrchestrationRuntimeStatus.Canceled
+            or OrchestrationRuntimeStatus.Failed;
+#pragma warning restore CS0618 // Type or member is obsolete
+    }
+}

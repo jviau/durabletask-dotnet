@@ -59,11 +59,9 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
             throw;
         }
 
-        SynchronizationContext previous = SynchronizationContext.Current;
-        using OrchestrationSynchronizationContext context = new();
         try
         {
-            SynchronizationContext.SetSynchronizationContext(context);
+            await workItem.InitializeAsync(cancellation);
             Cursor cursor = new(workItem, this.Options, orchestrator, this.loggerFactory, cancellation);
             await cursor.RunAsync();
         }
@@ -73,8 +71,6 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
         }
         finally
         {
-            context.Cancel();
-            SynchronizationContext.SetSynchronizationContext(previous);
             await workItem.ReleaseAsync(cancellation);
         }
     }

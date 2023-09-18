@@ -43,6 +43,16 @@ static class TaskExtensions
         // NOTE: This is NOT the same implementation as what's done in .NET 6. This
         //       implementation was chosen to avoid copying tons of code for something
         //       that's fairly trivial to implement manually (but not as efficiently).
+        if (task.IsCompleted || !cancellationToken.CanBeCanceled)
+        {
+            return task;
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Task.FromCanceled(cancellationToken);
+        }
+
         return Task.WhenAny(task, Task.Delay(Timeout.Infinite, cancellationToken));
     }
 }

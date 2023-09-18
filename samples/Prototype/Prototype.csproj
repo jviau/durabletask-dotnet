@@ -10,19 +10,23 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.10.0" />
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
     <PackageReference Include="Grpc.AspNetCore" Version="2.53.0" />
     <PackageReference Include="Microsoft.Azure.DurableTask.AzureStorage" Version="1.13.6" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="7.0.0" />
     <PackageReference Include="Vio.DurableTask.Hosting" Version="2.2.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="$(SrcRoot)Client/Core/Client.csproj" />
+    <ProjectReference Include="$(SrcRoot)Client/AzureStorage/Client.AzureStorage.csproj" />
     <ProjectReference Include="$(SrcRoot)Client/Grpc/Client.Grpc.csproj" />
     <ProjectReference Include="$(SrcRoot)Client/OrchestrationServiceClientShim/Client.OrchestrationServiceClientShim.csproj" />
     <ProjectReference Include="$(SrcRoot)Grpc/Hub/Grpc.Hub.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Core/Worker.csproj" />
+    <ProjectReference Include="$(SrcRoot)Worker/AzureStorage/Worker.AzureStorage.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Grpc/Worker.Grpc.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/OrchestrationServiceShim/Worker.OrchestrationServiceShim.csproj" />
   </ItemGroup>

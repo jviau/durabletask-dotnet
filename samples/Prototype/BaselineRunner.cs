@@ -11,6 +11,7 @@ static partial class BaselineRunner
         {
             0 => new CoreRunner(options),
             1 => new ChannelRunner(options),
+            2 => new StreamingRunner(options),
             _ => throw new ArgumentException(nameof(options.Mode)),
         };
     }

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageDescription>The Azure Storage client for the Durable Task Framework.</PackageDescription>
+    <EnableStyleCop>true</EnableStyleCop>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Core/Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <SharedSection Include="Core" />
+    <SharedSection Include="DependencyInjection" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Data.Tables" Version="12.8.0" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.17.0" />
+    <PackageReference Include="Azure.Storage.Queues" Version="12.15.0" />
+    <PackageReference Include="Microsoft.Extensions.Azure" Version="1.6.3" />
+    <PackageReference Include="System.Text.Json" Version="7.0.3" />
+  </ItemGroup>
+
+</Project>

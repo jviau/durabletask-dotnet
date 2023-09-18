@@ -13,6 +13,7 @@ partial class OrchestrationRunner
 {
     class Cursor
     {
+        readonly OrchestrationSynchronizationContext syncContext = new();
         readonly Dictionary<int, PendingAction> actions = new();
         readonly ITaskOrchestrator orchestrator;
         readonly ExternalEventSource externalEvent;
@@ -67,7 +68,7 @@ partial class OrchestrationRunner
                 {
                     while (this.Reader.TryRead(out OrchestrationMessage? message))
                     {
-                        this.logger.LogTrace("Received message of type {MessageType}", message.GetType());
+                        this.logger.LogInformation("Received message of type {MessageType}", message.GetType());
                         this.HandleMessage(message);
                     }
 
@@ -150,6 +151,7 @@ partial class OrchestrationRunner
 
             if (!this.WorkItem.IsReplaying)
             {
+                using OrchestrationSynchronizationContext.Disposable d = this.syncContext.Suppress();
                 await this.Writer.WriteAsync(action.ToMessage(this.Converter), this.cancellation);
             }
 
@@ -158,6 +160,7 @@ partial class OrchestrationRunner
 
         void HandleMessage(OrchestrationMessage message)
         {
+            using OrchestrationSynchronizationContext.Disposable d = this.syncContext.Enter();
             if (message.Timestamp > this.CurrentDateTime)
             {
                 // We track current time based on the progression of incoming message timestamps.

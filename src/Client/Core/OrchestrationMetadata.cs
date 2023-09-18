@@ -104,10 +104,7 @@ public sealed class OrchestrationMetadata
     /// or <see cref="OrchestrationRuntimeStatus.Terminated"/>.
     /// </remarks>
     /// <value><c>true</c> if the orchestration was in a terminal state; <c>false</c> otherwise.</value>
-    public bool IsCompleted =>
-        this.RuntimeStatus == OrchestrationRuntimeStatus.Completed ||
-        this.RuntimeStatus == OrchestrationRuntimeStatus.Failed ||
-        this.RuntimeStatus == OrchestrationRuntimeStatus.Terminated;
+    public bool IsCompleted => this.RuntimeStatus.IsTerminal();
 
     [MemberNotNullWhen(true, nameof(DataConverter))]
     bool RequestedInputsAndOutputs => this.DataConverter is not null;

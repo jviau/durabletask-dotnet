@@ -46,6 +46,13 @@ public abstract class OrchestrationWorkItem : WorkItem
     internal bool IsCompleted => this.Channel.Reader.Completion.IsCompleted;
 
     /// <summary>
+    /// Initializes this work item for processing.
+    /// </summary>
+    /// <param name="cancellation">The cancellation token.</param>
+    /// <returns>A task that completes when initialization is done.</returns>
+    public virtual ValueTask InitializeAsync(CancellationToken cancellation = default) => default;
+
+    /// <summary>
     /// Signals this orchestration has finished.
     /// </summary>
     /// <param name="cancellation">The cancellation token.</param>

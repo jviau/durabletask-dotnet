@@ -17,7 +17,6 @@ public abstract class WorkItem
     {
         this.Id = Check.NotNullOrEmpty(id);
         this.Name = Check.NotDefault(name);
-        this.Metadata = Dictionary.ReadOnly<string, string>.Empty;
     }
 
     /// <summary>
@@ -33,5 +32,5 @@ public abstract class WorkItem
     /// <summary>
     /// Gets the metadata associated with this work item.
     /// </summary>
-    public virtual IReadOnlyDictionary<string, string> Metadata { get; }
+    public virtual IReadOnlyDictionary<string, string> Metadata => Dictionary.ReadOnly<string, string>.Empty;
 }

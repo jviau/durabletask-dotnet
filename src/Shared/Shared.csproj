@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="**/*.cs"  />
+    <Compile Include="**/*.cs" />
     <None Include="**" Exclude="**/*.cs" />
   </ItemGroup>
 

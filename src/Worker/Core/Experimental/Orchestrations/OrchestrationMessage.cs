@@ -77,18 +77,7 @@ public record ExecutionCompleted(int Id, DateTimeOffset Timestamp, string? Resul
 /// This message plays double duty as both an inbound termination signal and an outbound completion message.
 /// </remarks>
 public record ExecutionTerminated(int Id, DateTimeOffset Timestamp, string? Result)
-    : ExecutionCompleted(Id, Timestamp, Result, null)
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ExecutionTerminated"/> class.
-    /// </summary>
-    /// <param name="timestamp">The timestamp this message originally occured at.</param>
-    /// <param name="reason">The reason for termination.</param>
-    public ExecutionTerminated(DateTimeOffset timestamp, string? reason)
-        : this(-1, timestamp, reason)
-    {
-    }
-}
+    : ExecutionCompleted(Id, Timestamp, Result, null);
 
 /// <summary>
 /// <see cref="ITaskOrchestrator" /> has requested to be "continued-as-new".
@@ -154,7 +143,9 @@ public record TimerFired(int Id, DateTimeOffset Timestamp, int ScheduledId)
 /// <param name="Timestamp">The timestamp this message originally occured at.</param>
 /// <param name="Name">The name of the <see cref="ITaskActivity" /> to run.</param>
 /// <param name="Input">The input for the <see cref="ITaskActivity" />.</param>
-public record TaskActivityScheduled(int Id, DateTimeOffset Timestamp, TaskName Name, string? Input)
+/// <param name="Options">The options to schedule this <see cref="ITaskActivity"/> with.</param>
+public record TaskActivityScheduled(
+    int Id, DateTimeOffset Timestamp, TaskName Name, string? Input, TaskScheduledOptions? Options = null)
     : WorkScheduledMessage(Id, Timestamp, Name, Input);
 
 /// <summary>
@@ -178,7 +169,7 @@ public record TaskActivityCompleted(
 /// <param name="Input">The input for the <see cref="ITaskOrchestrator" />.</param>
 /// <param name="Options">The options to schedule the <see cref="ITaskOrchestrator" /> with.</param>
 public record SubOrchestrationScheduled(
-    int Id, DateTimeOffset Timestamp, TaskName Name, string? Input, SubOrchestrationScheduledOptions? Options)
+    int Id, DateTimeOffset Timestamp, TaskName Name, string? Input, SubOrchestrationScheduledOptions? Options = null)
     : WorkScheduledMessage(Id, Timestamp, Name, Input);
 
 /// <summary>
@@ -194,13 +185,11 @@ public record SubOrchestrationCompleted(
     : WorkCompletedMessage(Id, Timestamp, ScheduledId, Result, Failure);
 
 /// <summary>
-/// Options that may be provided when scheduled a sub <see cref="ITaskOrchestrator" />.
+/// Options that may be provided when scheduled a sub <see cref="ITaskActivity" />.
 /// </summary>
-/// <param name="InstanceId">The sub-orchestrations instance ID.</param>
 /// <param name="InheritMetadata">True to inherit metadata, false otherwise. Defaults to true.</param>
 /// <param name="FireAndForget">Fire and forget this orchestration.</param>
-public record SubOrchestrationScheduledOptions(
-    string? InstanceId = null, bool InheritMetadata = true, bool FireAndForget = false)
+public record TaskScheduledOptions(bool InheritMetadata = true, bool FireAndForget = false)
 {
     /// <summary>
     /// Gets the sub-orchestrations metadata.
@@ -222,3 +211,13 @@ public record SubOrchestrationScheduledOptions(
         return parentMetadata.MergeLeft(this.Metadata);
     }
 }
+
+/// <summary>
+/// Options that may be provided when scheduled a sub <see cref="ITaskOrchestrator" />.
+/// </summary>
+/// <param name="InstanceId">The sub-orchestrations instance ID.</param>
+/// <param name="InheritMetadata">True to inherit metadata, false otherwise. Defaults to true.</param>
+/// <param name="FireAndForget">Fire and forget this orchestration.</param>
+public record SubOrchestrationScheduledOptions(
+    string? InstanceId = null, bool InheritMetadata = true, bool FireAndForget = false)
+    : TaskScheduledOptions(InheritMetadata, FireAndForget);

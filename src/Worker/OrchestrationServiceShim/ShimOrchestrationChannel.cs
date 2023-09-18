@@ -120,7 +120,7 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
             OrchestratorCompletedEvent => null!,
             OrchestratorStartedEvent e => new OrchestratorStarted(e.Timestamp),
             ExecutionStartedEvent e => new ExecutionStarted(e.Timestamp, e.Input),
-            ExecutionTerminatedEvent e => new ExecutionTerminated(e.Timestamp, e.Input),
+            ExecutionTerminatedEvent e => new ExecutionTerminated(-1, e.Timestamp, e.Input),
             ContinueAsNewEvent e => new ContinueAsNew(e.EventId, e.Timestamp, e.Result),
             ExecutionCompletedEvent e => new ExecutionCompleted(
                 e.EventId, e.Timestamp, e.Result, e.FailureDetails?.ConvertFromCore()),

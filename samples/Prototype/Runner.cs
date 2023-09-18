@@ -21,6 +21,8 @@ abstract class Runner : IAsyncDisposable
         CancellationToken cancellation = lifetime.ApplicationStopping;
         await this.host.StartAsync();
 
+        await this.IterationCleanupAsync(cancellation);
+
         // warmup
         for (int i = 0; i < 5; i++)
         {

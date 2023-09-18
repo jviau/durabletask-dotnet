@@ -72,7 +72,7 @@ partial class GrpcOrchestrationChannel : Channel<OrchestrationMessage>
             { OrchestratorCompleted: not null } => null!, // not important, drop this
             { OrchestratorStarted: { } x } => new OrchestratorStarted(timestamp),
             { ExecutionStarted: { } x } => new ExecutionStarted(timestamp, x.Input),
-            { ExecutionTerminated: { } x } => new ExecutionTerminated(timestamp, x.Input),
+            { ExecutionTerminated: { } x } => new ExecutionTerminated(-1, timestamp, x.Input),
             { ContinueAsNew: { } x } => new ContinueAsNew(e.EventId, timestamp, x.Input),
             { ExecutionCompleted: { } x } => new ExecutionCompleted(
                 e.EventId, timestamp, x.Result, x.FailureDetails?.ToTaskFailureDetails()),

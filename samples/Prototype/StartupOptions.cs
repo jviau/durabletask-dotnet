@@ -52,6 +52,7 @@ class BaselineOptions : StartupOptions
     {
         0 => "Baseline DurableTask.Core",
         1 => "Baseline Channels",
+        2 => "Stream Channels",
         _ => throw new ArgumentException(nameof(this.Mode)),
     };
 }

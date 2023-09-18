@@ -1,11 +1,15 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace Microsoft.DurableTask;
 
 /// <summary>
 /// The name of a durable task.
 /// </summary>
+[JsonConverter(typeof(Converter))]
 public readonly struct TaskName : IEquatable<TaskName>
 {
     // TODO: Add detailed remarks that describe the role of TaskName
@@ -128,7 +132,37 @@ public readonly struct TaskName : IEquatable<TaskName>
         }
         else
         {
-            return this.Name + ":" + this.Version;
+            return this.Name + "[" + this.Version + "]";
+        }
+    }
+
+    /// <summary>
+    /// Converter for <see cref="TaskName"/>.
+    /// </summary>
+    class Converter : JsonConverter<TaskName>
+    {
+        /// <inheritdoc/>
+        public override TaskName Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            string? name = reader.GetString();
+            if (string.IsNullOrEmpty(name))
+            {
+                return default;
+            }
+
+            int split = name!.IndexOf('[');
+            if (split < 0)
+            {
+                return new(name);
+            }
+
+            return new(name[..split]);
+        }
+
+        /// <inheritdoc/>
+        public override void Write(Utf8JsonWriter writer, TaskName value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value.ToString());
         }
     }
 }

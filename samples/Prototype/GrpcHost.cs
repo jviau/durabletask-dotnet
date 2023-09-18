@@ -81,7 +81,7 @@ public static class GrpcHost
         Action<IDurableTaskWorkerBuilder> configureWorker, Action<IDurableTaskClientBuilder> configureClient)
     {
         return Host.CreateDefaultBuilder()
-            .ConfigureLogging(b => b.SetMinimumLevel(LogLevel.Warning))
+            .ConfigureLogging(b => b.SetMinimumLevel(LogLevel.Information))
             .ConfigureServices(services =>
             {
                 services.AddDurableTaskWorker(b =>

@@ -25,7 +25,7 @@ public static class ChannelDurableTaskWorkerBuilderExtensions
 
         builder.UseBuildTarget<ChannelDurableTaskWorker, ChannelDurableTaskWorkerOptions>();
         builder.AddRunner<OrchestrationWorkItem, OrchestrationRunner, OrchestrationRunnerOptions>();
-        builder.AddRunner<ActivityWorkItem, ActivityRunner, WorkItemRunnerOptions>();
+        builder.AddRunner<ActivityWorkItem, ActivityRunner>();
         return builder;
     }
 
@@ -34,8 +34,24 @@ public static class ChannelDurableTaskWorkerBuilderExtensions
     /// </summary>
     /// <typeparam name="TWorkItem">The work item to run.</typeparam>
     /// <typeparam name="TRunner">The runner for the work item.</typeparam>
+    /// <param name="builder">The builder to configure.</param>
+    /// <returns>The same builder, for call chaining.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// If the current build target is not <see cref="ChannelDurableTaskWorker"/>.
+    /// </exception>
+    public static IDurableTaskWorkerBuilder AddRunner<TWorkItem, TRunner>(
+        this IDurableTaskWorkerBuilder builder)
+        where TWorkItem : WorkItem
+        where TRunner : WorkItemRunner<TWorkItem, WorkItemRunnerOptions>
+        => builder.AddRunner<TWorkItem, TRunner, WorkItemRunnerOptions>();
+
+    /// <summary>
+    /// Adds a work item runner to the <see cref="ChannelDurableTaskWorker"/>.
+    /// </summary>
+    /// <typeparam name="TWorkItem">The work item to run.</typeparam>
+    /// <typeparam name="TRunner">The runner for the work item.</typeparam>
     /// <typeparam name="TRunnerOptions">The runner options.</typeparam>
-    /// <param name="builder">The builder to confingure.</param>
+    /// <param name="builder">The builder to configure.</param>
     /// <returns>The same builder, for call chaining.</returns>
     /// <exception cref="InvalidOperationException">
     /// If the current build target is not <see cref="ChannelDurableTaskWorker"/>.
