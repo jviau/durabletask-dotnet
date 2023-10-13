@@ -21,7 +21,7 @@ static partial class BaselineRunner
             IHost host = GrpcHost.CreateWorkerHost(
                 worker =>
                 {
-                    worker.Services.AddOrchestrationService("shim");
+                    worker.Services.AddOrchestrationService("pshim");
                     worker.UseOrchestrationService();
                 },
                 client =>

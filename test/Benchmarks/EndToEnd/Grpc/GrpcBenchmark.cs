@@ -59,8 +59,7 @@ public abstract class GrpcBenchmark
         async Task RunOrchestrationAsync()
         {
             await Task.Yield();
-            string id = await this.Client.ScheduleNewOrchestrationInstanceAsync(
-                nameof(TestOrchestration), new TestInput(depth, "test-value"));
+            string id = await this.Client.ScheduleNewOrchestrationInstanceAsync(nameof(TestOrchestration), depth);
             OrchestrationMetadata data = await this.Client.WaitForInstanceCompletionAsync(id, this.ShutdownToken);
             if (data.RuntimeStatus != OrchestrationRuntimeStatus.Completed)
             {

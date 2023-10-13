@@ -5,7 +5,11 @@ using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
 using Microsoft.DurableTask;
 
-BenchmarkSwitcher.FromAssembly(typeof(AssemblyMarker).Assembly).Run(args);
+IConfig config = ManualConfig.Create(DefaultConfig.Instance)
+    .WithOptions(ConfigOptions.JoinSummary)
+    .WithOptions(ConfigOptions.DisableLogFile);
+
+BenchmarkSwitcher.FromAssembly(typeof(AssemblyMarker).Assembly).Run(args, config);
 
 namespace Microsoft.DurableTask
 {

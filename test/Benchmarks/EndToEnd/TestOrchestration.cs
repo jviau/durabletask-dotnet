@@ -5,47 +5,46 @@ using Core = DurableTask.Core;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-public record TestInput(int Count, string Value);
-
-public class TestOrchestration : TaskOrchestrator<TestInput, object>
+public class TestOrchestration : TaskOrchestrator<int, int>
 {
-    public override async Task<object> RunAsync(TaskOrchestrationContext context, TestInput input)
+    public override async Task<int> RunAsync(TaskOrchestrationContext context, int input)
     {
-        for (int i = 0; i < input.Count; i++)
+        int count = 0;
+        for (int i = 0; i < input; i++)
         {
-            await context.CallActivityAsync<string>(nameof(TestActivity), input.Value);
+            count = await context.CallActivityAsync<int>(nameof(TestActivity), count);
         }
 
-        return null!;
+        return count;
     }
 }
 
-public class TestActivity : TaskActivity<string, string>
+public class TestActivity : TaskActivity<int, int>
 {
-    public override Task<string> RunAsync(TaskActivityContext context, string input)
+    public override Task<int> RunAsync(TaskActivityContext context, int input)
     {
-        return Task.FromResult($"result: {input}");
+        return Task.FromResult(input + 1);
     }
 }
 
-public class TestCoreOrchestration : Core.TaskOrchestration<object, TestInput>
+public class TestCoreOrchestration : Core.TaskOrchestration<int, int>
 {
-    public override async Task<object> RunTask(Core.OrchestrationContext context, TestInput input)
+    public override async Task<int> RunTask(Core.OrchestrationContext context, int input)
     {
-        for (int i = 0; i < input.Count; i++)
+        int count = 0;
+        for (int i = 0; i < input; i++)
         {
-            await context.ScheduleTask<string>(typeof(TestCoreActivity), input.Value);
+            count = await context.ScheduleTask<int>(typeof(TestCoreActivity), count);
         }
 
-        return null!;
+        return count;
     }
 }
 
-public class TestCoreActivity : Core.AsyncTaskActivity<string, string>
+public class TestCoreActivity : Core.AsyncTaskActivity<int, int>
 {
-    protected override Task<string> ExecuteAsync(Core.TaskContext context, string input)
+    protected override Task<int> ExecuteAsync(Core.TaskContext context, int input)
     {
-        return Task.FromResult($"result: {input}");
+        return Task.FromResult(input + 1);
     }
 }
-

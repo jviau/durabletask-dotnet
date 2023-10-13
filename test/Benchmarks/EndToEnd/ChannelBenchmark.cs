@@ -9,11 +9,9 @@ using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-[MemoryDiagnoser]
-[IterationCount(10)]
-public class ChannelBenchmark
+public abstract class ChannelBenchmark
 {
-    protected IHost WorkerHost { get; private set; } = null!;
+    protected IHost Host { get; private set; } = null!;
 
     protected DurableTaskClient Client { get; private set; } = null!;
 
@@ -24,30 +22,69 @@ public class ChannelBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        Task Run()
+        async Task Run()
         {
-            this.WorkerHost = GrpcHost.CreateWorkerHost(
-                worker =>
-                {
-                    worker.Services.AddOrchestrationService(OrchestrationService.Kind.Default("baseline"));
-                    worker.UseOrchestrationService();
-                },
-                client =>
-                {
-                    client.UseOrchestrationService();
-                });
-
-            this.Client = this.WorkerHost.Services.GetRequiredService<DurableTaskClient>();
-            this.ShutdownToken = this.WorkerHost.Services.GetRequiredService<IHostApplicationLifetime>()
+            this.Host = HostHelpers.CreateWorkerHost(this.ConfigureWorker, this.ConfigureClient);
+            this.Client = this.Host.Services.GetRequiredService<DurableTaskClient>();
+            this.ShutdownToken = this.Host.Services.GetRequiredService<IHostApplicationLifetime>()
                 .ApplicationStopping;
-            return this.WorkerHost.StartAsync();
+
+            await this.OnGlobalSetupAsync();
+            await this.IterationCleanupAsync();
+            await this.Host.StartAsync();
         }
 
         Run().GetAwaiter().GetResult();
     }
 
     [IterationCleanup]
-    public void IterationCleanup()
+    public void IterationCleanup() => this.IterationCleanupAsync().GetAwaiter().GetResult();
+
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        async Task Run()
+        {
+            await this.Host.StopAsync();
+            this.Host.Dispose();
+        }
+
+        Run().GetAwaiter().GetResult();
+    }
+
+    [BenchmarkCategory("Local")]
+    [Benchmark(Description = "channel-shim")]
+    [ArgumentsSource(nameof(ScaleValues))]
+    public async Task OrchestrationScale(int count, int depth)
+    {
+        async Task RunOrchestrationAsync()
+        {
+            await Task.Yield();
+            string id = await this.Client.ScheduleNewOrchestrationInstanceAsync(nameof(TestOrchestration), depth);
+            OrchestrationMetadata data = await this.Client.WaitForInstanceCompletionAsync(
+                id, getInputsAndOutputs: true, this.ShutdownToken);
+            if (data.RuntimeStatus != OrchestrationRuntimeStatus.Completed)
+            {
+                throw new InvalidOperationException($"Unexpected status of {data.RuntimeStatus}.");
+            }
+
+            int result = data.ReadOutputAs<int>();
+            if (result != depth)
+            {
+                throw new InvalidOperationException($"Unexpected result of {result}. Expected {depth}.");
+            }
+        }
+
+        Task[] tasks = new Task[count];
+        for (int i = 0; i < count; i++)
+        {
+            tasks[i] = RunOrchestrationAsync();
+        }
+
+        await Task.WhenAll(tasks).WaitAsync(this.ShutdownToken);
+    }
+
+    protected Task IterationCleanupAsync()
     {
         IEnumerable<OrchestrationRuntimeStatus> statuses = new[]
         {
@@ -60,44 +97,12 @@ public class ChannelBenchmark
         };
 
         PurgeInstancesFilter filter = new(CreatedFrom: DateTimeOffset.MinValue, Statuses: statuses);
-        this.Client.PurgeAllInstancesAsync(filter, this.ShutdownToken).GetAwaiter().GetResult();
+        return this.Client.PurgeAllInstancesAsync(filter, this.ShutdownToken);
     }
 
-    [GlobalCleanup]
-    public void Cleanup()
-    {
-        async Task Run()
-        {
-            await this.WorkerHost.StopAsync();
-            this.WorkerHost.Dispose();
-        }
+    protected virtual Task OnGlobalSetupAsync() => Task.CompletedTask;
 
-        Run().GetAwaiter().GetResult();
-    }
+    protected abstract void ConfigureWorker(IDurableTaskWorkerBuilder builder);
 
-    [BenchmarkCategory("Local")]
-    [Benchmark(Description = "channel")]
-    [ArgumentsSource(nameof(ScaleValues))]
-    public async Task OrchestrationScale(int count, int depth)
-    {
-        async Task RunOrchestrationAsync()
-        {
-            await Task.Yield();
-            string id = await this.Client.ScheduleNewOrchestrationInstanceAsync(
-                nameof(TestOrchestration), new TestInput(depth, "test-value"));
-            OrchestrationMetadata data = await this.Client.WaitForInstanceCompletionAsync(id, this.ShutdownToken);
-            if (data.RuntimeStatus != OrchestrationRuntimeStatus.Completed)
-            {
-                throw new InvalidOperationException($"Unexpected status of {data.RuntimeStatus}.");
-            }
-        }
-
-        Task[] tasks = new Task[count];
-        for (int i = 0; i < count; i++)
-        {
-            tasks[i] = RunOrchestrationAsync();
-        }
-
-        await Task.WhenAll(tasks).WaitAsync(this.ShutdownToken);
-    }
+    protected abstract void ConfigureClient(IDurableTaskClientBuilder builder);
 }

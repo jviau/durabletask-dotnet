@@ -6,18 +6,21 @@
  </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.AspNetCore" Version="2.53.0" />
-    <PackageReference Include="BenchmarkDotNet" Version="0.13.5" />
-    <PackageReference Include="Microsoft.Azure.DurableTask.AzureStorage" Version="1.13.7" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.9" />
+    <PackageReference Include="Microsoft.Azure.DurableTask.AzureStorage" Version="1.14.0" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="$(SrcRoot)Client/AzureStorage/Client.AzureStorage.csproj" />
     <ProjectReference Include="$(SrcRoot)Client/Core/Client.csproj" />
     <ProjectReference Include="$(SrcRoot)Client/Grpc/Client.Grpc.csproj" />
     <ProjectReference Include="$(SrcRoot)Client/OrchestrationServiceClientShim/Client.OrchestrationServiceClientShim.csproj" />
     <ProjectReference Include="$(SrcRoot)Grpc/Hub/Grpc.Hub.csproj" />
     <ProjectReference Include="$(SrcRoot)Grpc/App/Grpc.App.csproj" />
+    <ProjectReference Include="$(SrcRoot)Worker/AzureStorage/Worker.AzureStorage.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Core/Worker.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Grpc/Worker.Grpc.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/OrchestrationServiceShim/Worker.OrchestrationServiceShim.csproj" />

@@ -26,11 +26,11 @@ static partial class BaselineRunner
             IHost host = GrpcHost.CreateWorkerHost(
                 worker =>
                 {
-                    worker.UseAzureStorage("stream2", "storagejavia", new AzureCliCredential());
+                    worker.UseAzureStorage("pstream2", "storagejavia", new AzureCliCredential());
                 },
                 client =>
                 {
-                    client.UseAzureStorage("stream2", "storagejavia", new AzureCliCredential());
+                    client.UseAzureStorage("pstream2", "storagejavia", new AzureCliCredential());
                 });
 
             AzureStorageDurableTaskClientOptions options = host.Services

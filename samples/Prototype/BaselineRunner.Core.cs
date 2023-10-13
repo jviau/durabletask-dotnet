@@ -31,7 +31,7 @@ static partial class BaselineRunner
             IHost host = Host.CreateDefaultBuilder()
                 .ConfigureServices(services =>
                 {
-                    services.AddOrchestrationService("baseline");
+                    services.AddOrchestrationService("pbaseline");
                 })
                 .ConfigureTaskHubWorker(builder =>
                 {
@@ -75,13 +75,12 @@ static partial class BaselineRunner
         protected override async Task RunIterationAsync(bool isWarmup, CancellationToken cancellation)
         {
             int depth = isWarmup ? 2 : this.options.Depth;
-
-            int fib = Fib.Get(depth);
+            int expected = depth;
             async Task RunOrchestrationAsync(int depth)
             {
                 await Task.Yield();
                 OrchestrationInstance instance = await this.client.CreateOrchestrationInstanceAsync(
-                    typeof(FibCoreOrchestration), depth);
+                    typeof(TestCoreOrchestration), depth);
                 OrchestrationState state = await this.client.WaitForOrchestrationAsync(
                     instance, TimeSpan.MaxValue, cancellation);
                 if (state.OrchestrationStatus != OrchestrationStatus.Completed)
@@ -90,9 +89,9 @@ static partial class BaselineRunner
                 }
 
                 int output = JsonSerializer.Deserialize<int>(state.Output);
-                if (output != fib)
+                if (output != expected)
                 {
-                    throw new InvalidOperationException($"Incorrect result: expected {fib}, actual {output}.");
+                    throw new InvalidOperationException($"Incorrect result: expected {expected}, actual {output}.");
                 }
             }
 

@@ -9,18 +9,18 @@ using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-public class GrpcBulkExternalHosted : GrpcExternalHosted
+public class GrpcStreamExternalHosted : GrpcExternalHosted
 {
-    protected override string Name => "bulk";
+    protected override string Name => "stream";
 
     [BenchmarkCategory("External")]
-    [Benchmark(Description = "channel + bulk")]
+    [Benchmark(Description = "grpc-stream")]
     [ArgumentsSource(nameof(ScaleValues))]
     public Task OrchestrationScale(int count, int depth) => this.RunScaleAsync(count, depth);
 
     protected override IHost CreateWorkerHost(GrpcChannel channel)
     {
-        return  GrpcHost.CreateWorkerHost(
-            b => b.UseBulkGrpcChannel(channel), b => b.UseGrpc(channel).RegisterDirectly());
+        return  HostHelpers.CreateWorkerHost(
+            b => b.UseStreamGrpcChannel(channel), b => b.UseStreamGrpc(channel).RegisterDirectly());
     }
 }

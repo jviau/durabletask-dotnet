@@ -39,9 +39,11 @@ static class OrchestrationService
         AzureStorageOrchestrationServiceSettings settings = new()
         {
             PartitionCount = 1,
+            MaxConcurrentTaskActivityWorkItems = int.MaxValue,
+            MaxConcurrentTaskOrchestrationWorkItems = int.MaxValue,
             StorageConnectionString = options.ConnectionString ?? "UseDevelopmentStorage=true",
             LoggerFactory = options.LoggerFactory ?? NullLoggerFactory.Instance,
-            TaskHubName = $"prototype{options.Name}",
+            TaskHubName = options.Name ?? "prototype",
             ExtendedSessionsEnabled = options.UseSessions,
         };
 
@@ -65,8 +67,7 @@ static class OrchestrationService
         };
     }
 
-    internal static IServiceCollection AddOrchestrationService(
-        this IServiceCollection services, string name)
+    internal static IServiceCollection AddOrchestrationService(this IServiceCollection services, string name)
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddOptions<Options>()

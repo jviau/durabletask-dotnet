@@ -10,21 +10,21 @@ using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-public class GrpcStreamSelfHosted : GrpcSelfHosted
+public class GrpcCoreSelfHosted : GrpcSelfHosted
 {
     [BenchmarkCategory("Local")]
-    [Benchmark(Description = "channel + stream")]
+    [Benchmark(Description = "grpc-baseline")]
     [ArgumentsSource(nameof(ScaleValues))]
     public Task OrchestrationScale(int count, int depth) => this.RunScaleAsync(count, depth);
 
     protected override IWebHost CreateHubHost(out GrpcChannel channel)
     {
-        return GrpcHost.CreateStreamHubHost("stream", out channel);
+        return HostHelpers.Grpc.CreateBulkHubHost("core", out channel);
     }
 
     protected override IHost CreateWorkerHost(GrpcChannel channel)
     {
-        return  GrpcHost.CreateWorkerHost(
-            b => b.UseStreamGrpcChannel(channel), b => b.UseStreamGrpc(channel).RegisterDirectly());
+        return  HostHelpers.CreateWorkerHost(
+            b => b.UseGrpc(channel), b => b.UseGrpc(channel).RegisterDirectly());
     }
 }

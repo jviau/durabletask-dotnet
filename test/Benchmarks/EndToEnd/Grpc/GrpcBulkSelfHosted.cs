@@ -3,24 +3,28 @@
 
 using BenchmarkDotNet.Attributes;
 using Grpc.Net.Client;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-public class GrpcStreamExternalHosted : GrpcExternalHosted
+public class GrpcBulkSelfHosted : GrpcSelfHosted
 {
-    protected override string Name => "stream";
-
-    [BenchmarkCategory("External")]
-    [Benchmark(Description = "channel + stream")]
+    [BenchmarkCategory("Local")]
+    [Benchmark(Description = "grpc-bulk")]
     [ArgumentsSource(nameof(ScaleValues))]
     public Task OrchestrationScale(int count, int depth) => this.RunScaleAsync(count, depth);
 
+    protected override IWebHost CreateHubHost(out GrpcChannel channel)
+    {
+        return HostHelpers.Grpc.CreateBulkHubHost("bulk", out channel);
+    }
+
     protected override IHost CreateWorkerHost(GrpcChannel channel)
     {
-        return  GrpcHost.CreateWorkerHost(
-            b => b.UseStreamGrpcChannel(channel), b => b.UseStreamGrpc(channel).RegisterDirectly());
+        return  HostHelpers.CreateWorkerHost(
+            b => b.UseBulkGrpcChannel(channel), b => b.UseGrpc(channel).RegisterDirectly());
     }
 }

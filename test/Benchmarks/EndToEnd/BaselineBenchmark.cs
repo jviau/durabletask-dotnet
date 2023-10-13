@@ -3,12 +3,11 @@
 
 using BenchmarkDotNet.Attributes;
 using DurableTask.Core;
+using DurableTask.Core.Serializing;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
-[MemoryDiagnoser]
-[IterationCount(10)]
-public class BaselineBenchmark
+public abstract class BaselineBenchmark
 {
     readonly CancellationTokenSource cts = new();
     IOrchestrationService orchestrationService = null!;
@@ -24,8 +23,10 @@ public class BaselineBenchmark
         async Task Run()
         {
             Console.CancelKeyPress += this.CancelKeyPress;
-            this.orchestrationService = OrchestrationService.Create(OrchestrationService.Kind.Default("baseline"));
+            this.orchestrationService = this.CreateOrchestrationService();
+            Console.WriteLine("Initializing orchestration service.");
             await this.orchestrationService.CreateIfNotExistsAsync();
+            Console.WriteLine("Initialized orchestration service.");
             this.worker = new(this.orchestrationService);
             this.worker.AddTaskOrchestrations(typeof(TestCoreOrchestration));
             this.worker.AddTaskActivities(typeof(TestCoreActivity));
@@ -85,12 +86,18 @@ public class BaselineBenchmark
         {
             await Task.Yield();
             OrchestrationInstance instance = await this.Client.CreateOrchestrationInstanceAsync(
-                typeof(TestCoreOrchestration), new TestInput(depth, "test-value"));
+                typeof(TestCoreOrchestration), depth);
             OrchestrationState state = await this.Client.WaitForOrchestrationAsync(
                 instance, TimeSpan.MaxValue, this.cts.Token);
             if (state.OrchestrationStatus != OrchestrationStatus.Completed)
             {
                 throw new InvalidOperationException($"Unexpected status of {state.OrchestrationStatus}.");
+            }
+
+            int result = JsonDataConverter.Default.Deserialize<int>(state.Output);
+            if (result != depth)
+            {
+                throw new InvalidOperationException($"Unexpected result of {result}. Expected {depth}.");
             }
         }
 
@@ -102,6 +109,8 @@ public class BaselineBenchmark
 
         await Task.WhenAll(tasks).WaitAsync(this.cts.Token);
     }
+
+    protected abstract IOrchestrationService CreateOrchestrationService();
 
     void CancelKeyPress(object? sender, ConsoleCancelEventArgs e)
     {
