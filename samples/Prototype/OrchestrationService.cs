@@ -35,6 +35,7 @@ static class OrchestrationService
     internal static AzureStorageOrchestrationService CreateAzureStorage(Options options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        Console.WriteLine($"Using AzureStorage: sessions={options.UseSessions}");
         AzureStorageOrchestrationServiceSettings settings = new()
         {
             PartitionCount = 1,

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -42,6 +43,7 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
         }
 
         ITaskOrchestrator? orchestrator;
+        using IDisposable logScope = this.logger.BeginScope(new LogScope(workItem.Id, workItem.Name));
         await using AsyncServiceScope scope = this.services.CreateAsyncScope();
 
         try
@@ -73,5 +75,27 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
         {
             await workItem.ReleaseAsync(cancellation);
         }
+    }
+
+    readonly struct LogScope : IEnumerable<KeyValuePair<string, object>>
+    {
+        readonly string id;
+        readonly TaskName name;
+
+        public LogScope(string id, TaskName name)
+        {
+            this.id = id;
+            this.name = name;
+        }
+
+        public override string ToString() => $"InstanceId: {this.id}, TaskName: {this.name}";
+
+        public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
+        {
+            yield return new("InstanceId", this.id);
+            yield return new("TaskName", this.name);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 }

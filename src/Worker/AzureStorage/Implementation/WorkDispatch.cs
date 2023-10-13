@@ -28,9 +28,9 @@ class WorkDispatch
     public string Id { get; }
 
     /// <summary>
-    /// Gets the message to be dispatched.
+    /// Gets or sets the message to be dispatched.
     /// </summary>
-    public OrchestrationMessage Message { get; }
+    public OrchestrationMessage Message { get; set; }
 
     /// <summary>
     /// Gets the parent for this work dispatch, if available.

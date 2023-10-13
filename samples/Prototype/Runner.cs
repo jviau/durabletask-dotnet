@@ -90,16 +90,24 @@ abstract class PrototypeRunner<TOptions> : Runner
 
     protected override async Task RunIterationAsync(bool isWarmup, CancellationToken cancellation)
     {
-        int depth = isWarmup ? 1 : this.Options.Depth;
+        int depth = isWarmup ? 2 : this.Options.Depth;
+
+        int fib = Fib.Get(depth);
         async Task RunOrchestrationAsync(int depth)
         {
             await Task.Yield();
             string id = await this.client.ScheduleNewOrchestrationInstanceAsync(
-                nameof(TestOrchestration), new TestInput(depth, "test-value"), cancellation);
-            OrchestrationMetadata data = await this.client.WaitForInstanceCompletionAsync(id, cancellation);
+                nameof(FibOrchestration), depth, cancellation);
+            OrchestrationMetadata data = await this.client.WaitForInstanceCompletionAsync(id, true, cancellation);
             if (data.RuntimeStatus != OrchestrationRuntimeStatus.Completed)
             {
                 throw new InvalidOperationException($"Unexpected status of {data.RuntimeStatus}.");
+            }
+
+            int output = data.ReadOutputAs<int>();
+            if (output != fib)
+            {
+                throw new InvalidOperationException($"Incorrect result: expected {fib}, actual {output}.");
             }
         }
 

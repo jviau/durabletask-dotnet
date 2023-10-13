@@ -66,6 +66,7 @@ interface IOrchestrationSession
 class StorageOrchestrationSession : IOrchestrationSession
 {
     readonly TaskCompletionSource<object?> completion = new();
+    readonly OrchestrationEnvelope envelope;
     readonly IOrchestrationStore store;
     readonly IOrchestrationQueue queue;
     readonly ILogger logger;
@@ -75,11 +76,14 @@ class StorageOrchestrationSession : IOrchestrationSession
     /// <summary>
     /// Initializes a new instance of the <see cref="StorageOrchestrationSession"/> class.
     /// </summary>
+    /// <param name="envelope">The orchestration envelope.</param>
     /// <param name="store">The orchestration store.</param>
     /// <param name="queue">The orchestration queue.</param>
     /// <param name="logger">The logger.</param>
-    public StorageOrchestrationSession(IOrchestrationStore store, IOrchestrationQueue queue, ILogger logger)
+    public StorageOrchestrationSession(
+        OrchestrationEnvelope envelope, IOrchestrationStore store, IOrchestrationQueue queue, ILogger logger)
     {
+        this.envelope = envelope;
         this.store = Check.NotNull(store);
         this.queue = Check.NotNull(queue);
         this.logger = logger;
@@ -136,10 +140,7 @@ class StorageOrchestrationSession : IOrchestrationSession
 
         if (message is ExecutionCompleted completed)
         {
-            this.logger.LogInformation("Orchestration completed.");
-            this.completion.TrySetResult(null);
-            this.completed = completed;
-            await this.UpdateStateCoreAsync();
+            await this.CompleteOrchestrationAsync(completed);
         }
 
         // If queue write succeeded, we will not cancel here.
@@ -177,5 +178,21 @@ class StorageOrchestrationSession : IOrchestrationSession
         };
 
         return this.store.UpdateStateAsync(update, this.CancellationToken);
+    }
+
+    async Task CompleteOrchestrationAsync(ExecutionCompleted completed)
+    {
+        this.logger.LogInformation("Orchestration completed.");
+        this.completion.TrySetResult(null);
+        this.completed = completed;
+
+        if (this.envelope.Parent is not null)
+        {
+            SubOrchestrationCompleted notification = new(
+                -1, DateTimeOffset.UtcNow, this.envelope.ScheduledId!.Value, completed.Result, completed.Failure);
+            await this.queue.SendMessageAsync(notification, this.CancellationToken);
+        }
+
+        await this.UpdateStateCoreAsync();
     }
 }

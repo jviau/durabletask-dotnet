@@ -187,6 +187,12 @@ partial class OrchestrationRunner
 
         void OnExecutionStarted(ExecutionStarted message)
         {
+            if (this.executionTask is not null)
+            {
+                this.logger.LogInformation("Duplicate execution started received.");
+                return;
+            }
+
             TaskOrchestrationContext context = new Context(this);
             this.Input = this.Converter.Deserialize(message.Input, this.orchestrator.InputType);
             this.executionTask = this.orchestrator.RunAsync(context, this.Input);
@@ -229,7 +235,15 @@ partial class OrchestrationRunner
         {
             if (!this.actions.TryGetValue(message.ScheduledId, out PendingAction action))
             {
-                // duplicate event?
+                if (message.ScheduledId > this.sequenceId)
+                {
+                    this.logger.LogWarning("Unexpected message received.");
+                }
+                else
+                {
+                    this.logger.LogInformation("Duplicate message received. {ScheduledId}", message.ScheduledId);
+                }
+
                 return;
             }
 

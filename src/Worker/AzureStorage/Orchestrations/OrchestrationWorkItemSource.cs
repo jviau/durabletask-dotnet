@@ -124,7 +124,7 @@ class OrchestrationWorkItemSource : IWorkItemSource
     async Task<AzureStorageOrchestrationWorkItem?> CreateWorkItemAsync(
         WorkDispatch work, CancellationToken cancellation)
     {
-        OrchestrationEnvelope? envelope = await this.GetEnvelopeAsync(work.Id, cancellation);
+        OrchestrationEnvelope? envelope = await this.GetEnvelopeAsync(work, cancellation);
         if (envelope is null)
         {
             // We have no state, orchestration was probably purged. Delete it.
@@ -134,10 +134,11 @@ class OrchestrationWorkItemSource : IWorkItemSource
         }
 
         WorkDispatchReader reader = await this.router.InitializeAsync(work, cancellation);
-        TableOrchestrationStore store = new(work.Id, this.history, this.state);
+        TableOrchestrationStore store = new(
+            work.Id, this.history, this.state, this.loggerFactory.CreateLogger<TableOrchestrationStore>());
         AzureOrchestrationQueue queue = new(envelope.Value, reader, this.orchestrations, this.activities);
         StorageOrchestrationSession session = new(
-            store, queue, this.loggerFactory.CreateLogger<StorageOrchestrationSession>());
+            envelope.Value, store, queue, this.loggerFactory.CreateLogger<StorageOrchestrationSession>());
         return new AzureStorageOrchestrationWorkItem(
             envelope.Value, session, this.loggerFactory.CreateLogger<AzureStorageOrchestrationWorkItem>())
         {
@@ -145,23 +146,45 @@ class OrchestrationWorkItemSource : IWorkItemSource
         };
     }
 
-    async Task<OrchestrationEnvelope?> GetEnvelopeAsync(string id, CancellationToken cancellation)
+    async Task<OrchestrationEnvelope?> GetEnvelopeAsync(WorkDispatch work, CancellationToken cancellation)
     {
-        NullableResponse<TableEntity> response = await this.state.GetEntityIfExistsAsync<TableEntity>(
-            id, "state", StateSelect, cancellation);
+        if (work.Message is SubOrchestrationScheduled scheduled)
+        {
+            OrchestrationInstanceEntity instance = new()
+            {
+                PartitionKey = work.Id,
+                RowKey = "state",
+                CreatedAt = scheduled.Timestamp,
+                Input = scheduled.Input,
+                Name = scheduled.Name,
+                Status = RuntimeStatus.Running,
+                ParentId = work.Parent?.Id,
+                ParentName = work.Parent?.Name,
+                ScheduledId = scheduled.Id,
+            };
+
+            await this.state.AddEntityAsync(instance, cancellation);
+            ParentOrchestrationInstance? p = work.Parent is null
+                ? null : new ParentOrchestrationInstance(work.Parent.Name, work.Parent.Id);
+
+            work.Message = new ExecutionStarted(scheduled.Timestamp, scheduled.Input);
+            return new OrchestrationEnvelope(work.Id, scheduled.Name, p) { ScheduledId = scheduled.Id };
+        }
+
+        NullableResponse<OrchestrationInstanceEntity> response = await this.state
+            .GetEntityIfExistsAsync<OrchestrationInstanceEntity>(work.Id, "state", StateSelect, cancellation);
         if (!response.HasValue)
         {
             return null;
         }
 
-        TableEntity entity = response.Value;
-        TaskName name = entity.GetString("Name");
+        OrchestrationInstanceEntity entity = response.Value;
         ParentOrchestrationInstance? parent = null;
-        if (entity.GetString("ParentId") is string parentId)
+        if (entity.ParentId is string parentId)
         {
-            parent = new(entity.GetString("ParentName"), parentId);
+            parent = new(entity.ParentName!, parentId);
         }
 
-        return new OrchestrationEnvelope(id, name, parent);
+        return new OrchestrationEnvelope(work.Id, entity.Name!, parent) { ScheduledId = entity.ScheduledId };
     }
 }

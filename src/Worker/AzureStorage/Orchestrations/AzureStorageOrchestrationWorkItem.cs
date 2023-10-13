@@ -22,6 +22,7 @@ readonly struct OrchestrationEnvelope
         this.Id = Check.NotNullOrEmpty(id);
         this.Name = name;
         this.Parent = parent;
+        this.ScheduledId = null;
     }
 
     /// <summary>
@@ -33,6 +34,11 @@ readonly struct OrchestrationEnvelope
     /// Gets the name of the orchestration.
     /// </summary>
     public TaskName Name { get; }
+
+    /// <summary>
+    /// Gets the scheduled ID for this orchestration.
+    /// </summary>
+    public int? ScheduledId { get; init; }
 
     /// <summary>
     /// Gets the parent orchestration instance.

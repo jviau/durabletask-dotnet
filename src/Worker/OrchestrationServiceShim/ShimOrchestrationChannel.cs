@@ -306,6 +306,7 @@ partial class ShimOrchestrationChannel : Channel<OrchestrationMessage>
 
     async Task<bool> TryRenewSessionAsync(CancellationToken cancellation)
     {
+        cancellation.ThrowIfCancellationRequested();
         if (this.abort)
         {
             return false;

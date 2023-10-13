@@ -26,6 +26,12 @@ partial class StorageOrchestrationChannel
                 return false;
             }
 
+            if (this.parent.IsReplaying)
+            {
+                // Ignore any writes during a replay.
+                return true;
+            }
+
             return this.parent.pendingActions.Writer.TryWrite(() => this.parent.session.SendNewMessageAsync(item));
         }
 

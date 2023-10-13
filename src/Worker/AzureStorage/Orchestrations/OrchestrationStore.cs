@@ -1,10 +1,10 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Collections.Concurrent;
 using System.Globalization;
 using Azure;
 using Azure.Data.Tables;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.DurableTask.Worker.AzureStorage;
 
@@ -46,6 +46,7 @@ class TableOrchestrationStore : IOrchestrationStore
     readonly string id;
     readonly TableClient historyClient;
     readonly TableClient stateClient;
+    readonly ILogger logger;
     readonly string historyFilter;
     int index = -1; // -1 since this is pre-incremented during the append phase.
 
@@ -55,25 +56,32 @@ class TableOrchestrationStore : IOrchestrationStore
     /// <param name="id">The orchestration instance ID.</param>
     /// <param name="historyClient">The table client for orchestration history.</param>
     /// <param name="stateClient">The table client for orchestration state.</param>
+    /// <param name="logger">The logger.</param>
     public TableOrchestrationStore(
-        string id,
-        TableClient historyClient,
-        TableClient stateClient)
+        string id, TableClient historyClient, TableClient stateClient, ILogger<TableOrchestrationStore> logger)
     {
         this.id = Check.NotNullOrEmpty(id);
         this.historyClient = Check.NotNull(historyClient);
         this.stateClient = Check.NotNull(stateClient);
+        this.logger = Check.NotNull(logger);
 
         // We use an explicit filter like this so we don't capture other rows with the same partition key.
         this.historyFilter = $"PartitionKey eq '{this.id}'";
     }
 
     /// <inheritdoc/>
-    public Task AppendMessageAsync(OrchestrationMessage message, CancellationToken cancellation = default)
+    public async Task AppendMessageAsync(OrchestrationMessage message, CancellationToken cancellation = default)
     {
         Check.NotNull(message);
         MessageEntity entity = this.CreateEntity(message);
-        return this.historyClient.AddEntityAsync(entity, cancellation);
+        if (!await this.historyClient.TryAddEntityAsync(entity, cancellation))
+        {
+            this.logger.LogWarning(
+                "Entity already exists:  PartitionKey={PartitionKey}, RowKey={RowKey}, Type={MessageType}",
+                entity.PartitionKey,
+                entity.RowKey,
+                message.GetType().Name);
+        }
     }
 
     /// <inheritdoc/>
@@ -89,10 +97,10 @@ class TableOrchestrationStore : IOrchestrationStore
     }
 
     /// <inheritdoc/>
-    public async Task UpdateStateAsync(StateUpdate state, CancellationToken cancellation = default)
+    public Task UpdateStateAsync(StateUpdate state, CancellationToken cancellation = default)
     {
         StateUpdateEntity entity = StateUpdateEntity.Create(this.id, state);
-        await this.stateClient.UpdateEntityAsync(entity, ETag.All, TableUpdateMode.Merge, cancellation);
+        return this.stateClient.UpdateEntityAsync(entity, ETag.All, TableUpdateMode.Merge, cancellation);
     }
 
     MessageEntity CreateEntity(OrchestrationMessage message)

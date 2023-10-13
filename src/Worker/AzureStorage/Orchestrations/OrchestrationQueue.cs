@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Threading.Channels;
+using Azure.Data.Tables;
 using Azure.Storage.Queues;
 
 namespace Microsoft.DurableTask.Worker.AzureStorage;
@@ -123,7 +124,8 @@ class AzureOrchestrationQueue : IOrchestrationQueue
         {
             TimerScheduled => this.envelope.Id,
             TaskActivityScheduled m => $"{this.envelope.Id}::{m.Name}@{m.Id}",
-            SubOrchestrationScheduled m => m.Options?.InstanceId ?? Guid.NewGuid().ToString(),
+            SubOrchestrationScheduled m => m.Options?.InstanceId ?? Guid.NewGuid().ToString("N"),
+            SubOrchestrationCompleted => this.envelope.Parent!.InstanceId,
             EventSent m => m.InstanceId,
             _ => throw new InvalidOperationException($"Message type {message.GetType()} is not a dispatchable message."),
         };

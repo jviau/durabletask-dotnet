@@ -3,8 +3,6 @@
 
 using System.Text.Json;
 using Azure;
-using FluentAssertions;
-using Xunit;
 
 namespace Microsoft.DurableTask.Worker.AzureStorage.Tests;
 
@@ -78,7 +76,8 @@ public class StorageSerializerTests
             {
                 string json = JsonSerializer.Serialize(
                     message, typeof(OrchestrationMessage), StorageSerializer.Options);
-                OrchestrationMessage result = JsonSerializer.Deserialize<OrchestrationMessage>(json, StorageSerializer.Options)!;
+                OrchestrationMessage result = JsonSerializer.Deserialize<OrchestrationMessage>(
+                    json, StorageSerializer.Options)!;
                 message.Should().Be(result);
             }
             catch

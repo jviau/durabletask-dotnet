@@ -90,6 +90,9 @@ public static class GrpcHost
                     {
                         r.AddOrchestrator<TestOrchestration>();
                         r.AddActivity<TestActivity>();
+
+                        r.AddOrchestrator<FibOrchestration>();
+                        r.AddActivity<FibEndActivity>();
                     });
                     configureWorker(b);
                 });

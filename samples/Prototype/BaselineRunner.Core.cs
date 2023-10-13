@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
 using DurableTask.Core;
 using DurableTask.DependencyInjection;
 using DurableTask.Hosting;
@@ -36,6 +37,9 @@ static partial class BaselineRunner
                 {
                     builder.AddActivity<TestCoreActivity>();
                     builder.AddOrchestration<TestCoreOrchestration>();
+
+                    builder.AddActivity<FibEndCoreActivity>();
+                    builder.AddOrchestration<FibCoreOrchestration>();
                     builder.AddClient();
                 },
                 opt => opt.CreateIfNotExists = true)
@@ -70,17 +74,25 @@ static partial class BaselineRunner
 
         protected override async Task RunIterationAsync(bool isWarmup, CancellationToken cancellation)
         {
-            int depth = isWarmup ? 1 : this.options.Depth;
+            int depth = isWarmup ? 2 : this.options.Depth;
+
+            int fib = Fib.Get(depth);
             async Task RunOrchestrationAsync(int depth)
             {
                 await Task.Yield();
                 OrchestrationInstance instance = await this.client.CreateOrchestrationInstanceAsync(
-                    typeof(TestCoreOrchestration), new TestInput(depth, "test-value"));
+                    typeof(FibCoreOrchestration), depth);
                 OrchestrationState state = await this.client.WaitForOrchestrationAsync(
                     instance, TimeSpan.MaxValue, cancellation);
                 if (state.OrchestrationStatus != OrchestrationStatus.Completed)
                 {
                     throw new InvalidOperationException($"Unexpected status of {state.OrchestrationStatus}.");
+                }
+
+                int output = JsonSerializer.Deserialize<int>(state.Output);
+                if (output != fib)
+                {
+                    throw new InvalidOperationException($"Incorrect result: expected {fib}, actual {output}.");
                 }
             }
 

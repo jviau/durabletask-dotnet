@@ -40,12 +40,20 @@ public class ChannelDurableTaskWorker : DurableTaskWorker
     {
         this.InitializeRunners();
         ChannelReader<WorkItem> reader = this.options.WorkItemReader;
-        while (await reader.WaitToReadAsync(stoppingToken))
+
+        try
         {
-            while (reader.TryRead(out WorkItem? item))
+            while (await reader.WaitToReadAsync(stoppingToken))
             {
-                _ = Task.Factory.StartNew(this.ProcessWorkItemAsync, (item, stoppingToken));
+                while (reader.TryRead(out WorkItem? item))
+                {
+                    _ = Task.Factory.StartNew(this.ProcessWorkItemAsync, (item, stoppingToken));
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // shutting down.
         }
     }
 
