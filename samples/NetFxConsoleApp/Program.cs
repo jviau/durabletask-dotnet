@@ -22,12 +22,12 @@ namespace NetFxConsoleApp
                         {
                             tasks.AddOrchestratorFunc("HelloSequence", async context =>
                             {
-                                var greetings = new List<string>
-                                {
+                                List<string> greetings =
+                                [
                                     await context.CallActivityAsync<string>("SayHello", "Tokyo"),
                                     await context.CallActivityAsync<string>("SayHello", "London"),
                                     await context.CallActivityAsync<string>("SayHello", "Seattle"),
-                                };
+                                ];
 
                                 return greetings;
                             });
@@ -46,7 +46,7 @@ namespace NetFxConsoleApp
             string instanceId = await client.ScheduleNewOrchestrationInstanceAsync("HelloSequence");
             Console.WriteLine($"Created instance: '{instanceId}'");
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1000));
+            using CancellationTokenSource cts = new(TimeSpan.FromSeconds(1000));
             OrchestrationMetadata instance = await client.WaitForInstanceCompletionAsync(
                 instanceId,
                 getInputsAndOutputs: true,

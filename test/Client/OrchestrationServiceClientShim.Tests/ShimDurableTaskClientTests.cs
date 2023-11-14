@@ -70,7 +70,7 @@ public class ShimDurableTaskClientTests
     public async Task GetInstanceMetadata_Results(bool getInputs)
     {
         // arrange
-        List<Core.OrchestrationState> states = new() { CreateState("input") };
+        List<Core.OrchestrationState> states = [ CreateState("input") ];
         string instanceId = states.First().OrchestrationInstance.InstanceId;
         this.orchestrationClient.Setup(m => m.GetOrchestrationStateAsync(instanceId, false)).ReturnsAsync(states);
 
@@ -88,11 +88,11 @@ public class ShimDurableTaskClientTests
     {
         // arrange
         DateTimeOffset utcNow = DateTimeOffset.UtcNow;
-        List<Core.OrchestrationState> states = new()
-        {
+        List<Core.OrchestrationState> states =
+        [
             CreateState("input", start: utcNow.AddMinutes(-1)),
             CreateState(10, "output", utcNow.AddMinutes(-5)),
-        };
+        ];
 
         OrchestrationQueryResult queryResult = new(states, null);
         string instanceId = states.First().OrchestrationInstance.InstanceId;

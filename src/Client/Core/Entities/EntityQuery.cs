@@ -49,7 +49,7 @@ public record EntityQuery
                 if (pos != -1)
                 {
                     // selectively normalize only the part up until that separator
-                    this.instanceIdStartsWith = prefix.Substring(0, pos).ToLowerInvariant() + prefix.Substring(pos);
+                    this.instanceIdStartsWith = prefix[..pos].ToLowerInvariant() + prefix.Substring(pos);
                 }
                 else
                 {

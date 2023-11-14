@@ -275,9 +275,9 @@ namespace Microsoft.DurableTask
 
         class DurableTaskSyntaxReceiver : ISyntaxContextReceiver
         {
-            readonly List<DurableTaskTypeInfo> orchestrators = new();
-            readonly List<DurableTaskTypeInfo> activities = new();
-            readonly List<DurableFunction> durableFunctions = new();
+            readonly List<DurableTaskTypeInfo> orchestrators = [];
+            readonly List<DurableTaskTypeInfo> activities = [];
+            readonly List<DurableFunction> durableFunctions = [];
 
             public IReadOnlyList<DurableTaskTypeInfo> Orchestrators => this.orchestrators;
             public IReadOnlyList<DurableTaskTypeInfo> Activities => this.activities;

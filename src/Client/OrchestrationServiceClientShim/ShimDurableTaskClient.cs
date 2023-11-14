@@ -81,7 +81,8 @@ class ShimDurableTaskClient(string name, ShimDurableTaskClientOptions options) :
             OrchestrationQueryResult result = await queryClient.GetOrchestrationWithQueryAsync(
                 coreQuery, cancellation);
 
-            var metadata = result.OrchestrationState.Select(x => this.ToMetadata(x, coreQuery.FetchInputsAndOutputs))
+            List<OrchestrationMetadata> metadata = result.OrchestrationState
+                .Select(x => this.ToMetadata(x, coreQuery.FetchInputsAndOutputs))
                 .ToList();
             return new Page<OrchestrationMetadata>(metadata, result.ContinuationToken);
         });

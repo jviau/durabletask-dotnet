@@ -45,7 +45,7 @@ public sealed class TestLogProvider(ITestOutputHelper output) : ILoggerProvider
 
     class TestLogger(string category, ITestOutputHelper output) : ILogger
     {
-        readonly List<LogEntry> entries = new List<LogEntry>();
+        readonly List<LogEntry> entries = [];
 
         public IReadOnlyCollection<LogEntry> GetLogs() => this.entries.AsReadOnly();
 
@@ -62,7 +62,7 @@ public sealed class TestLogProvider(ITestOutputHelper output) : ILoggerProvider
             Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            var entry = new LogEntry(
+            LogEntry entry = new(
                 category,
                 level,
                 eventId,

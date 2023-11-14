@@ -1,11 +1,10 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using DurableTask.Core.Entities;
 using Microsoft.DurableTask.Client.Entities;
 using Microsoft.DurableTask.Entities;
-using Microsoft.Extensions.Logging;
 using static Microsoft.DurableTask.Protobuf.TaskHubSidecarService;
-using DTCore = DurableTask.Core;
 using P = Microsoft.DurableTask.Protobuf;
 
 namespace Microsoft.DurableTask.Client.Grpc;
@@ -200,7 +199,7 @@ class GrpcDurableEntityClient(
 
     EntityMetadata ToEntityMetadata(P.EntityMetadata metadata, bool includeState)
     {
-        var coreEntityId = DTCore.Entities.EntityId.FromString(metadata.InstanceId);
+        EntityId coreEntityId = EntityId.FromString(metadata.InstanceId);
         EntityInstanceId entityId = new(coreEntityId.Name, coreEntityId.Key);
         bool hasState = metadata.SerializedState != null;
 
@@ -215,7 +214,7 @@ class GrpcDurableEntityClient(
 
     EntityMetadata<T> ToEntityMetadata<T>(P.EntityMetadata metadata, bool includeState)
     {
-        var coreEntityId = DTCore.Entities.EntityId.FromString(metadata.InstanceId);
+        EntityId coreEntityId = EntityId.FromString(metadata.InstanceId);
         EntityInstanceId entityId = new(coreEntityId.Name, coreEntityId.Key);
         DateTimeOffset lastModified = metadata.LastModifiedTime.ToDateTimeOffset();
         bool hasState = metadata.SerializedState != null;

@@ -71,10 +71,9 @@ namespace Microsoft.DurableTask.Generators.AzureFunctions
         public static bool TryGetRequiredNamespaces(
             List<INamedTypeSymbol> types, out HashSet<string>? requiredNamespaces)
         {
-            requiredNamespaces = new HashSet<string>();
+            requiredNamespaces = [];
 
-            var remaining = new Queue<INamedTypeSymbol>(types);
-
+            Queue<INamedTypeSymbol> remaining = new(types);
             while (remaining.Count > 0)
             {
                 INamedTypeSymbol typeInfo = remaining.Dequeue();

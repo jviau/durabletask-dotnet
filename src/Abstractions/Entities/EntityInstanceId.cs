@@ -48,14 +48,14 @@ public readonly record struct EntityInstanceId
     public static EntityInstanceId FromString(string instanceId)
     {
         Check.NotNullOrEmpty(instanceId);
-        var pos = instanceId.IndexOf('@', 1);
+        int pos = instanceId.IndexOf('@', 1);
         if (pos <= 0 || instanceId[0] != '@')
         {
             throw new ArgumentException($"Instance ID '{instanceId}' is not a valid entity ID.", nameof(instanceId));
         }
 
-        var entityName = instanceId.Substring(1, pos - 1);
-        var entityKey = instanceId.Substring(pos + 1);
+        string entityName = instanceId[1..pos];
+        string entityKey = instanceId[(pos + 1)..];
         return new EntityInstanceId(entityName, entityKey);
     }
 
@@ -69,7 +69,7 @@ public readonly record struct EntityInstanceId
     {
         public override EntityInstanceId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            return EntityInstanceId.FromString(reader.GetString()!);
+            return FromString(reader.GetString()!);
         }
 
         public override void Write(Utf8JsonWriter writer, EntityInstanceId value, JsonSerializerOptions options)

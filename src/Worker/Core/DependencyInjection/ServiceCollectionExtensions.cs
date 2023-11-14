@@ -89,7 +89,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     class BuilderContainer(IServiceCollection services)
     {
-        readonly Dictionary<string, IDurableTaskWorkerBuilder> builders = new();
+        readonly Dictionary<string, IDurableTaskWorkerBuilder> builders = [];
 
         public IDurableTaskWorkerBuilder GetOrAdd(string name, out bool added)
         {

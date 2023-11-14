@@ -232,7 +232,7 @@ static class ProtoUtils
         IEnumerable<OrchestratorAction> actions)
     {
         Check.NotNull(actions);
-        var response = new P.OrchestratorResponse
+        P.OrchestratorResponse response = new()
         {
             InstanceId = instanceId,
             CustomStatus = customStatus,
@@ -240,7 +240,7 @@ static class ProtoUtils
 
         foreach (OrchestratorAction action in actions)
         {
-            var protoAction = new P.OrchestratorAction { Id = action.Id };
+            P.OrchestratorAction protoAction = new() { Id = action.Id };
 
             switch (action.OrchestratorActionType)
             {
@@ -549,8 +549,7 @@ static class ProtoUtils
             return null;
         }
 
-        var action = new P.OperationAction();
-
+        P.OperationAction action = new();
         switch (operationAction)
         {
             case SendSignalOperationAction sendSignalAction:
@@ -615,7 +614,7 @@ static class ProtoUtils
             return null;
         }
 
-        var batchResult = new P.EntityBatchResult()
+        P.EntityBatchResult batchResult = new()
         {
             EntityState = entityBatchResult.EntityState,
             FailureDetails = entityBatchResult.FailureDetails.ToProtobuf(),

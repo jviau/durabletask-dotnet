@@ -73,11 +73,7 @@ namespace Microsoft.DurableTask.Generators.AzureFunctions
                 return false;
             }
 
-            List<INamedTypeSymbol> usedTypes = new()
-            {
-                returnSymbol,
-                parameter.Type
-            };
+            List<INamedTypeSymbol> usedTypes = [ returnSymbol, parameter.Type ];
 
             if (!SyntaxNodeUtility.TryGetRequiredNamespaces(usedTypes, out HashSet<string>? requiredNamespaces))
             {

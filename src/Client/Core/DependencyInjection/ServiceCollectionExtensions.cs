@@ -85,7 +85,7 @@ public static class ServiceCollectionExtensions
             services.Add(descriptor);
         }
 
-        var container = (BuilderContainer)descriptor.ImplementationInstance!;
+        BuilderContainer container = (BuilderContainer)descriptor.ImplementationInstance!;
         return container.GetOrAdd(name, out added);
     }
 
@@ -94,7 +94,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     class BuilderContainer(IServiceCollection services)
     {
-        readonly Dictionary<string, IDurableTaskClientBuilder> builders = new();
+        readonly Dictionary<string, IDurableTaskClientBuilder> builders = [];
 
         public IDurableTaskClientBuilder GetOrAdd(string name, out bool added)
         {

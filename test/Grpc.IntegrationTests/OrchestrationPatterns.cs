@@ -96,7 +96,7 @@ public class OrchestrationPatterns(ITestOutputHelper output, GrpcSidecarFixture 
         {
             b.AddTasks(tasks => tasks.AddOrchestratorFunc(orchestratorName, async ctx =>
             {
-                var list = new List<bool> { ctx.IsReplaying };
+                List<bool> list = [ ctx.IsReplaying ];
                 await ctx.CreateTimer(TimeSpan.Zero, CancellationToken.None);
                 list.Add(ctx.IsReplaying);
                 await ctx.CreateTimer(TimeSpan.Zero, CancellationToken.None);
@@ -241,7 +241,7 @@ public class OrchestrationPatterns(ITestOutputHelper output, GrpcSidecarFixture 
             b.AddTasks(tasks => tasks
                 .AddOrchestratorFunc(orchestratorName, async ctx =>
                 {
-                    var tasks = new List<Task<string>>();
+                    List<Task<string>> tasks = [];
                     for (int i = 0; i < 10; i++)
                     {
                         tasks.Add(ctx.CallActivityAsync<string>(toStringActivity, i));
@@ -275,7 +275,7 @@ public class OrchestrationPatterns(ITestOutputHelper output, GrpcSidecarFixture 
         {
             b.AddTasks(tasks => tasks.AddOrchestratorFunc(orchestratorName, async ctx =>
             {
-                List<int> events = new();
+                List<int> events = [];
                 for (int i = 0; i < eventCount; i++)
                 {
                     events.Add(await ctx.WaitForExternalEvent<int>($"Event{i}"));
@@ -318,7 +318,7 @@ public class OrchestrationPatterns(ITestOutputHelper output, GrpcSidecarFixture 
         {
             b.AddTasks(tasks => tasks.AddOrchestratorFunc(orchestratorName, async ctx =>
             {
-                List<Task<int>> events = new();
+                List<Task<int>> events = [];
                 for (int i = 0; i < eventCount; i++)
                 {
                     events.Add(ctx.WaitForExternalEvent<int>("Event"));

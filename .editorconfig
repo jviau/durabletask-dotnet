@@ -226,6 +226,7 @@ end_of_line = crlf
 dotnet_diagnostic.IDE0073.severity = suggestion # Require file header.
 
 # StyleCop rules
+dotnet_diagnostic.SA1010.severity = none  # Opening brackets should not be preceded by a space.
 dotnet_diagnostic.SA1127.severity = none  # Generic type constraints must be on own line.
 dotnet_diagnostic.SA1205.severity = none  # Partial elements should declare an access modifier.
 dotnet_diagnostic.SA1400.severity = none  # Access modifier must be declared

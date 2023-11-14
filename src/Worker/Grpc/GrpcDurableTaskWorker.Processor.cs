@@ -93,7 +93,7 @@ sealed partial class GrpcDurableTaskWorker
             IEnumerable<HistoryEvent> newEvents = request.NewEvents.Select(ProtoUtils.ConvertHistoryEvent);
 
             // Reconstruct the orchestration state in a way that correctly distinguishes new events from past events
-            var runtimeState = new OrchestrationRuntimeState(pastEvents.ToList());
+            OrchestrationRuntimeState runtimeState = new(pastEvents.ToList());
             foreach (HistoryEvent e in newEvents)
             {
                 // AddEvent() puts events into the NewEvents list.
@@ -348,10 +348,8 @@ sealed partial class GrpcDurableTaskWorker
 
         async Task OnRunEntityBatchAsync(P.EntityBatchRequest request)
         {
-            var coreEntityId = DTCore.Entities.EntityId.FromString(request.InstanceId);
-            EntityId entityId = new(coreEntityId.Name, coreEntityId.Key);
-
-            TaskName name = new(entityId.Name);
+            EntityId coreEntityId = EntityId.FromString(request.InstanceId);
+            TaskName name = new(coreEntityId.Name);
 
             EntityBatchRequest batchRequest = request.ToEntityBatchRequest();
             EntityBatchResult? batchResult;
@@ -365,7 +363,7 @@ sealed partial class GrpcDurableTaskWorker
                 {
                     // Both the factory invocation and the RunAsync could involve user code and need to be handled as
                     // part of try/catch.
-                    TaskEntity shim = this.shimFactory.CreateEntity(name, entity, entityId);
+                    TaskEntity shim = this.shimFactory.CreateEntity(name, entity, coreEntityId);
                     batchResult = await shim.ExecuteOperationBatchAsync(batchRequest);
                 }
                 else
@@ -374,7 +372,7 @@ sealed partial class GrpcDurableTaskWorker
                     // so we return a non-retryable error-OperationResult for each operation in the batch.
                     batchResult = new EntityBatchResult()
                     {
-                        Actions = new List<OperationAction>(), // no actions
+                        Actions = [], // no actions
                         EntityState = batchRequest.EntityState, // state is unmodified
                         Results = Enumerable.Repeat(
                             new OperationResult()
@@ -397,9 +395,9 @@ sealed partial class GrpcDurableTaskWorker
                 // and which contains failure details
                 batchResult = new EntityBatchResult()
                 {
-                    Actions = new List<OperationAction>(),
+                    Actions = [],
                     EntityState = batchRequest.EntityState,
-                    Results = new List<OperationResult>(),
+                    Results = [],
                     FailureDetails = new FailureDetails(frameworkException),
                 };
             }

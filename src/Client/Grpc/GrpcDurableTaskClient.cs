@@ -77,7 +77,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     {
         Check.NotEntity(this.options.EnableEntitySupport, options?.InstanceId);
 
-        var request = new P.CreateInstanceRequest
+        P.CreateInstanceRequest request = new()
         {
             Name = orchestratorName.Name,
             Version = orchestratorName.Version,

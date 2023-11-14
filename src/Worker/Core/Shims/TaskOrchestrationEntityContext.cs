@@ -24,7 +24,7 @@ sealed partial class TaskOrchestrationContextWrapper
     /// </summary>
     sealed class TaskOrchestrationEntityContext : TaskOrchestrationEntityFeature
     {
-        static readonly List<EntityInstanceId> EmptyEntityList = new();
+        static readonly List<EntityInstanceId> EmptyEntityList = [];
 
         readonly TaskOrchestrationContextWrapper wrapper;
 
@@ -195,7 +195,7 @@ sealed partial class TaskOrchestrationContextWrapper
 
             Guid guid = this.wrapper.NewGuid(); // deterministically replayable unique id for this request
             string? serializedInput = this.wrapper.DataConverter.Serialize(input);
-            var target = new OrchestrationInstance() { InstanceId = instanceId };
+            OrchestrationInstance target = new() { InstanceId = instanceId };
 
             EntityMessageEvent entityMessageEvent = this.EntityContext.EmitRequestMessage(
                     target,

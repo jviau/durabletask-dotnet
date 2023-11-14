@@ -54,7 +54,7 @@ class TaskEntityShim : DTCore.Entities.TaskEntity
         this.state.CurrentState = operations.EntityState;
         this.state.Commit();
 
-        List<OperationResult> results = new();
+        List<OperationResult> results = [];
 
         foreach (OperationRequest current in operations.Operations!)
         {
@@ -84,7 +84,7 @@ class TaskEntityShim : DTCore.Entities.TaskEntity
             }
         }
 
-        var batchResult = new EntityBatchResult()
+        EntityBatchResult batchResult = new()
         {
             Results = results,
             Actions = this.context.Actions,
@@ -158,7 +158,7 @@ class TaskEntityShim : DTCore.Entities.TaskEntity
 
     class ContextShim(EntityInstanceId entityInstanceId, DataConverter dataConverter) : TaskEntityContext
     {
-        List<OperationAction> operationActions = new List<OperationAction>();
+        List<OperationAction> operationActions = [];
         int checkpointPosition;
 
         public List<OperationAction> Actions => this.operationActions;
@@ -179,7 +179,7 @@ class TaskEntityShim : DTCore.Entities.TaskEntity
 
         public void Reset()
         {
-            this.operationActions = new List<OperationAction>();
+            this.operationActions = [];
             this.checkpointPosition = 0;
         }
 
