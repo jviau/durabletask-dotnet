@@ -11,7 +11,7 @@ namespace Microsoft.DurableTask.Worker;
 /// </summary>
 partial class OrchestrationRunner
 {
-    class Cursor
+    class Cursor : IDisposable
     {
         readonly OrchestrationSynchronizationContext syncContext = new();
         readonly Dictionary<int, PendingAction> actions = new();
@@ -57,6 +57,11 @@ partial class OrchestrationRunner
         ChannelReader<OrchestrationMessage> Reader => this.WorkItem.Channel.Reader;
 
         ChannelWriter<OrchestrationMessage> Writer => this.WorkItem.Channel.Writer;
+
+        public void Dispose()
+        {
+            this.syncContext.Dispose();
+        }
 
         public int GetNextId() => this.sequenceId++;
 

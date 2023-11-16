@@ -15,7 +15,7 @@ partial class GrpcOrchestrationChannel : Channel<OrchestrationMessage>, IAsyncDi
 {
     readonly string instanceId;
     readonly Func<Task> complete;
-    readonly IDisposable stream;
+    readonly AsyncDuplexStreamingCall<P.OrchestratorAction, P.OrchestratorMessage> stream;
 
     bool disposed;
 

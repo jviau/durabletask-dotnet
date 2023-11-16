@@ -72,7 +72,7 @@ namespace Microsoft.DurableTask.Generators.AzureFunctions
 
             var remaining = new Queue<INamedTypeSymbol>(types);
 
-            while (remaining.Any())
+            while (remaining.Count > 0)
             {
                 INamedTypeSymbol typeInfo = remaining.Dequeue();
                 if (typeInfo is null)

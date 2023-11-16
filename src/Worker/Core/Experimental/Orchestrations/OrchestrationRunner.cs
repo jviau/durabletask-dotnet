@@ -64,7 +64,7 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
         try
         {
             await workItem.InitializeAsync(cancellation);
-            Cursor cursor = new(workItem, this.Options, orchestrator, this.loggerFactory, cancellation);
+            using Cursor cursor = new(workItem, this.Options, orchestrator, this.loggerFactory, cancellation);
             await cursor.RunAsync();
         }
         catch (Exception ex)

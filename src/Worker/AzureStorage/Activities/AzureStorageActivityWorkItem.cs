@@ -84,10 +84,10 @@ class AzureStorageActivityWorkItem : ActivityWorkItem
         await this.activityQueue.DeleteMessageAsync(this.work.MessageId, this.work.PopReceipt);
     }
 
-    Task AbandonAsync()
+    async Task AbandonAsync()
     {
         TimeSpan timeout = this.GetVisibilityTimeout();
-        return this.activityQueue.UpdateMessageAsync(
+        await this.activityQueue.UpdateMessageAsync(
             this.work.MessageId, this.work.PopReceipt, visibilityTimeout: timeout);
     }
 

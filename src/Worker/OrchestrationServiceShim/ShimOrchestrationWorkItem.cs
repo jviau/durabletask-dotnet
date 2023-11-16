@@ -9,7 +9,7 @@ namespace Microsoft.DurableTask.Worker.OrchestrationServiceShim;
 /// <summary>
 /// <see cref="OrchestrationWorkItem"/> backed by a <see cref="TaskOrchestrationWorkItem"/>.
 /// </summary>
-class ShimOrchestrationWorkItem : OrchestrationWorkItem
+class ShimOrchestrationWorkItem : OrchestrationWorkItem, IDisposable
 {
     readonly CancellationTokenSource cts = new();
     readonly IOrchestrationService service;
@@ -57,6 +57,12 @@ class ShimOrchestrationWorkItem : OrchestrationWorkItem
 
     /// <inheritdoc/>
     public override Channel<OrchestrationMessage> Channel => this.channel;
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        this.cts.Dispose();
+    }
 
     /// <inheritdoc/>
     public override async Task ReleaseAsync(CancellationToken cancellation = default)
