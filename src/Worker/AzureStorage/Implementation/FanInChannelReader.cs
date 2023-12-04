@@ -42,6 +42,7 @@ static class FanInChannelReader
 
         public override async ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
         {
+            // TODO: Fix this class.
             Task<bool> t = await Task.WhenAny(
                 this.first?.WaitToReadAsync(cancellationToken).AsTask(),
                 this.second?.WaitToReadAsync(cancellationToken).AsTask());

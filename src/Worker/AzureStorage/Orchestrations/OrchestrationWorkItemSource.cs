@@ -100,7 +100,7 @@ class OrchestrationWorkItemSource : IWorkItemSource
 
             foreach (QueueMessage message in messages)
             {
-                WorkDispatch? work = await message.Body.ToObjectAsync<WorkDispatch>(
+                WorkMessage? work = await message.Body.ToObjectAsync<WorkMessage>(
                     StorageSerializer.Default, cancellation);
                 if (work is null)
                 {
@@ -122,7 +122,7 @@ class OrchestrationWorkItemSource : IWorkItemSource
     }
 
     async Task<AzureStorageOrchestrationWorkItem?> CreateWorkItemAsync(
-        WorkDispatch work, CancellationToken cancellation)
+        WorkMessage work, CancellationToken cancellation)
     {
         OrchestrationEnvelope? envelope = await this.GetEnvelopeAsync(work, cancellation);
         if (envelope is null)
@@ -146,7 +146,7 @@ class OrchestrationWorkItemSource : IWorkItemSource
         };
     }
 
-    async Task<OrchestrationEnvelope?> GetEnvelopeAsync(WorkDispatch work, CancellationToken cancellation)
+    async Task<OrchestrationEnvelope?> GetEnvelopeAsync(WorkMessage work, CancellationToken cancellation)
     {
         if (work.Message is SubOrchestrationScheduled scheduled)
         {

@@ -15,7 +15,7 @@ interface IOrchestrationQueue
     /// <summary>
     /// Gets a channel reader for new messages.
     /// </summary>
-    ChannelReader<WorkDispatch> Reader { get; }
+    ChannelReader<WorkMessage> Reader { get; }
 
     /// <summary>
     /// Deletes a message.
@@ -23,7 +23,7 @@ interface IOrchestrationQueue
     /// <param name="message">The message to delete.</param>
     /// <param name="cancellation">The cancellation token.</param>
     /// <returns>A task that completes when the message is deleted.</returns>
-    Task DeleteMessageAsync(WorkDispatch message, CancellationToken cancellation = default);
+    Task DeleteMessageAsync(WorkMessage message, CancellationToken cancellation = default);
 
     /// <summary>
     /// Sends a message to the outbound queue.
@@ -71,10 +71,10 @@ class AzureOrchestrationQueue : IOrchestrationQueue
     }
 
     /// <inheritdoc/>
-    public ChannelReader<WorkDispatch> Reader => this.reader;
+    public ChannelReader<WorkMessage> Reader => this.reader;
 
     /// <inheritdoc/>
-    public Task DeleteMessageAsync(WorkDispatch message, CancellationToken cancellation = default)
+    public Task DeleteMessageAsync(WorkMessage message, CancellationToken cancellation = default)
     {
         Check.NotNull(message);
         return this.orchestrationQueue.DeleteMessageAsync(message.MessageId, message.PopReceipt, cancellation);
@@ -101,7 +101,7 @@ class AzureOrchestrationQueue : IOrchestrationQueue
     BinaryData GetData(OrchestrationMessage message, out TimeSpan? delay)
     {
         WorkParent? parent = message is WorkScheduledMessage
-            ? new WorkParent(this.envelope.Id, this.envelope.Name) { QueueName = this.orchestrationQueue.Name }
+            ? new(this.envelope.Id, this.envelope.Name, this.orchestrationQueue.Name)
             : null;
 
         delay = null;
@@ -114,7 +114,7 @@ class AzureOrchestrationQueue : IOrchestrationQueue
             }
         }
 
-        WorkDispatch m = new(this.GetDispatchId(message), message) { Parent = parent };
+        WorkMessage m = new(this.GetDispatchId(message), message) { Parent = parent };
         return StorageSerializer.Default.Serialize(m);
     }
 

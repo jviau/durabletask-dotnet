@@ -24,7 +24,7 @@ interface IOrchestrationSession
     /// <summary>
     /// Gets a reader for new messages.
     /// </summary>
-    ChannelReader<WorkDispatch> NewMessageReader { get; }
+    ChannelReader<WorkMessage> NewMessageReader { get; }
 
     /// <summary>
     /// Gets the stored history for this orchestration.
@@ -44,7 +44,7 @@ interface IOrchestrationSession
     /// </summary>
     /// <param name="message">The message to consume.</param>
     /// <returns>A task that completes when the message is consumed.</returns>
-    Task ConsumeMessageAsync(WorkDispatch message);
+    Task ConsumeMessageAsync(WorkMessage message);
 
     /// <summary>
     /// Update state for this session.
@@ -96,7 +96,7 @@ class StorageOrchestrationSession : IOrchestrationSession
     public CancellationToken CancellationToken => default;
 
     /// <inheritdoc/>
-    public ChannelReader<WorkDispatch> NewMessageReader => this.queue.Reader;
+    public ChannelReader<WorkMessage> NewMessageReader => this.queue.Reader;
 
     RuntimeStatus RuntimeStatus => this.completed switch
     {
@@ -107,7 +107,7 @@ class StorageOrchestrationSession : IOrchestrationSession
     };
 
     /// <inheritdoc/>
-    public async Task ConsumeMessageAsync(WorkDispatch message)
+    public async Task ConsumeMessageAsync(WorkMessage message)
     {
         Check.NotNull(message);
 

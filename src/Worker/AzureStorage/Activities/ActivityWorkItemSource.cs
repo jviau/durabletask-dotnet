@@ -5,7 +5,9 @@ using System.Threading.Channels;
 using Azure;
 using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.DurableTask.Worker.AzureStorage;
 
@@ -18,20 +20,23 @@ class ActivityWorkItemSource : IWorkItemSource
     readonly Channel<WorkItem> channel = Channel.CreateBounded<WorkItem>(
         new BoundedChannelOptions(MaxMessages) { SingleReader = true, SingleWriter = true, });
 
-    readonly QueueServiceClient queues;
-    readonly QueueClient queue;
+    readonly ActivityWorkItemFactory workItemFactory;
+    readonly DurableStorageClientOptions options;
     readonly ILogger logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ActivityWorkItemSource"/> class.
     /// </summary>
-    /// <param name="prefix">The queue prefix name.</param>
-    /// <param name="queues">The queue provider.</param>
+    /// <param name="factory">The queue prefix name.</param>
+    /// <param name="options">The storage client options.</param>
     /// <param name="logger">The logger.</param>
-    public ActivityWorkItemSource(string prefix, QueueServiceClient queues, ILogger<ActivityWorkItemSource> logger)
+    public ActivityWorkItemSource(
+        ActivityWorkItemFactory factory,
+        DurableStorageClientOptions options,
+        ILogger<ActivityWorkItemSource> logger)
     {
-        this.queues = Check.NotNull(queues);
-        this.queue = queues.GetQueueClient(prefix + "activities");
+        this.workItemFactory = Check.NotNull(factory);
+        this.options = Check.NotNull(options);
         this.logger = Check.NotNull(logger);
     }
 
@@ -55,34 +60,27 @@ class ActivityWorkItemSource : IWorkItemSource
             catch (Exception ex)
             {
                 this.logger.LogError(ex, "Receive loop encountered an error.");
+                await Task.Delay(TimeSpan.FromSeconds(3), cancellation);
             }
         }
     }
 
     async Task ReceiveLoopAsync(CancellationToken cancellation)
     {
-        await this.queue.CreateIfNotExistsAsync(cancellationToken: cancellation);
+        QueueClient queue = this.options.ActivityQueue;
+        await queue.CreateIfNotExistsAsync(cancellationToken: cancellation);
         while (await this.channel.Writer.WaitToWriteAsync(cancellation))
         {
-            int maxMessages = MaxMessages - this.channel.Reader.Count;
-            if (maxMessages > 32)
-            {
-                maxMessages = 32;
-            }
-
-            QueueMessage[] messages = await this.queue.ReceiveMessagesAsync(
-                maxMessages, cancellationToken: cancellation);
+            int max = QueueHelpers.GetBatchSize(MaxMessages, this.channel.Reader.Count);
+            QueueMessage[] messages = await queue.ReceiveMessagesAsync(
+                max, cancellationToken: cancellation);
 
             foreach (QueueMessage message in messages)
             {
-                WorkDispatch? work = await message.Body.ToObjectAsync<WorkDispatch>(
-                    StorageSerializer.Default, cancellation);
-
+                WorkMessage work = WorkMessage.Create(message);
                 if (work is not null)
                 {
-                    work.Populate(message);
-                    AzureStorageActivityWorkItem workItem = new(
-                        work, this.queue, this.queues.GetQueueClient(work.Parent!.QueueName!), this.logger);
+                    ActivityWorkItem workItem = this.workItemFactory.Create(work);
                     this.channel.Writer.TryWrite(workItem);
                 }
             }

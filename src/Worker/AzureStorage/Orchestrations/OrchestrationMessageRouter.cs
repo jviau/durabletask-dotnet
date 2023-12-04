@@ -33,7 +33,7 @@ class OrchestrationMessageRouter
     /// <param name="cancellation">The cancellation token.</param>
     /// <returns>True if delivered, false otherwise.</returns>
     public ValueTask<bool> DeliverAsync(
-        string id, WorkDispatch message, CancellationToken cancellation = default)
+        string id, WorkMessage message, CancellationToken cancellation = default)
     {
         static async Task<bool> SlowAsync(ValueTask task)
         {
@@ -63,7 +63,7 @@ class OrchestrationMessageRouter
     /// <param name="cancellation">The cancellation token.</param>
     /// <returns>The reader of the initialized channel.</returns>
     public ValueTask<WorkDispatchReader> InitializeAsync(
-        WorkDispatch message, CancellationToken cancellation = default)
+        WorkMessage message, CancellationToken cancellation = default)
     {
         Check.NotNull(message);
         if (this.orchestrationChannels.ContainsKey(message.Id))
@@ -77,7 +77,7 @@ class OrchestrationMessageRouter
     class Dispatcher : WorkDispatchReader
     {
         readonly string id;
-        readonly Channel<WorkDispatch> channel;
+        readonly Channel<WorkMessage> channel;
         readonly OrchestrationMessageRouter router;
 
         Dispatcher(string id, OrchestrationMessageRouter router)
@@ -95,29 +95,29 @@ class OrchestrationMessageRouter
 
         public override Task Completion => this.Inner.Completion;
 
-        ChannelReader<WorkDispatch> Inner => this.channel.Reader;
+        ChannelReader<WorkMessage> Inner => this.channel.Reader;
 
         public static async ValueTask<WorkDispatchReader> CreateAsync(
-            WorkDispatch dispatch, OrchestrationMessageRouter router, CancellationToken cancellation)
+            WorkMessage dispatch, OrchestrationMessageRouter router, CancellationToken cancellation)
         {
             Dispatcher reader = new(dispatch.Id, router);
             await reader.WriteAsync(dispatch, cancellation);
             return reader;
         }
 
-        public override bool TryRead([MaybeNullWhen(false)] out WorkDispatch item)
+        public override bool TryRead([MaybeNullWhen(false)] out WorkMessage item)
             => this.Inner.TryRead(out item);
 
-        public override bool TryPeek([MaybeNullWhen(false)] out WorkDispatch item)
+        public override bool TryPeek([MaybeNullWhen(false)] out WorkMessage item)
             => this.Inner.TryPeek(out item);
 
         public override ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
             => this.Inner.WaitToReadAsync(cancellationToken);
 
-        public override ValueTask<WorkDispatch> ReadAsync(CancellationToken cancellationToken = default)
+        public override ValueTask<WorkMessage> ReadAsync(CancellationToken cancellationToken = default)
             => this.Inner.ReadAsync(cancellationToken);
 
-        public ValueTask WriteAsync(WorkDispatch dispatch, CancellationToken cancellation)
+        public ValueTask WriteAsync(WorkMessage dispatch, CancellationToken cancellation)
         {
             return this.channel.Writer.WriteAsync(dispatch, cancellation);
         }
@@ -128,9 +128,9 @@ class OrchestrationMessageRouter
             return default;
         }
 
-        Channel<WorkDispatch> CreateChannel()
+        Channel<WorkMessage> CreateChannel()
         {
-            Channel<WorkDispatch> channel = Channel.CreateUnbounded<WorkDispatch>(
+            Channel<WorkMessage> channel = Channel.CreateUnbounded<WorkMessage>(
                 new() { SingleReader = true, SingleWriter = true });
             this.router.orchestrationChannels[this.id] = this;
             return channel;

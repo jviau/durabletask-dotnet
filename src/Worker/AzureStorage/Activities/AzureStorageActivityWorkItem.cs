@@ -13,7 +13,7 @@ namespace Microsoft.DurableTask.Worker.AzureStorage;
 class AzureStorageActivityWorkItem : ActivityWorkItem
 {
     readonly TaskActivityScheduled message;
-    readonly WorkDispatch work;
+    readonly WorkMessage work;
     readonly QueueClient activityQueue;
     readonly QueueClient parentQueue;
     readonly ILogger logger;
@@ -26,7 +26,7 @@ class AzureStorageActivityWorkItem : ActivityWorkItem
     /// <param name="parentQueue">The queue for the activity parent.</param>
     /// <param name="logger">The logger.</param>
     public AzureStorageActivityWorkItem(
-        WorkDispatch work,
+        WorkMessage work,
         QueueClient activityQueue,
         QueueClient parentQueue,
         ILogger logger)
@@ -63,7 +63,7 @@ class AzureStorageActivityWorkItem : ActivityWorkItem
         return new(this.CompleteAsync(failed));
     }
 
-    static string VerifyAndGetId(WorkDispatch message, out TaskActivityScheduled scheduled)
+    static string VerifyAndGetId(WorkMessage message, out TaskActivityScheduled scheduled)
     {
         Check.NotNull(message);
         if (message.Message is not TaskActivityScheduled m)
@@ -78,7 +78,7 @@ class AzureStorageActivityWorkItem : ActivityWorkItem
 
     async Task CompleteAsync(TaskActivityCompleted completed)
     {
-        WorkDispatch outbound = new(this.work.Parent!.Id, completed);
+        WorkMessage outbound = new(this.work.Parent!.Id, completed);
         BinaryData data = StorageSerializer.Default.Serialize(outbound);
         await this.parentQueue.SendMessageAsync(data);
         await this.activityQueue.DeleteMessageAsync(this.work.MessageId, this.work.PopReceipt);

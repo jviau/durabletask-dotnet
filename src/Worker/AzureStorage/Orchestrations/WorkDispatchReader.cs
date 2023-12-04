@@ -6,9 +6,9 @@ using System.Threading.Channels;
 namespace Microsoft.DurableTask.Worker.AzureStorage;
 
 /// <summary>
-/// A channel reader for <see cref="WorkDispatch"/>.
+/// A channel reader for <see cref="WorkMessage"/>.
 /// </summary>
-abstract class WorkDispatchReader : ChannelReader<WorkDispatch>, IAsyncDisposable
+abstract class WorkDispatchReader : ChannelReader<WorkMessage>, IAsyncDisposable
 {
     /// <inheritdoc/>
     public abstract ValueTask DisposeAsync();

@@ -28,13 +28,18 @@ public static class AzureDurableTaskWorkerBuilderExtensions
     public static IDurableTaskWorkerBuilder UseAzureStorage(
         this IDurableTaskWorkerBuilder builder, string prefix, string storageAccount, TokenCredential credential)
     {
-        QueueServiceClient queue = new(new Uri($"https://{storageAccount}.queue.core.windows.net"), credential);
-        TableServiceClient table = new(new Uri($"https://{storageAccount}.table.core.windows.net"), credential);
+        DurableStorageClientOptions options = new()
+        {
+            HubName = prefix,
+            QueueUri = new Uri($"https://{storageAccount}.queue.core.windows.net"),
+            TableUri = new Uri($"https://{storageAccount}.table.core.windows.net"),
+            Credential = credential,
+        };
 
         builder.Services.AddSingleton(
-            sp => CreateActivitySource(prefix, queue, sp.GetRequiredService<ILoggerFactory>()));
+            sp => CreateActivitySource(options, sp.GetRequiredService<ILoggerFactory>()));
         builder.Services.AddSingleton(
-            sp => CreateOrchestrationSource(prefix, queue, table, sp.GetRequiredService<ILoggerFactory>()));
+            sp => CreateOrchestrationSource(options, sp.GetRequiredService<ILoggerFactory>()));
 
         builder.Services.TryAddSingleton(
             sp => new WorkItemChannel(
@@ -47,18 +52,19 @@ public static class AzureDurableTaskWorkerBuilderExtensions
     }
 
     static ActivityWorkItemSource CreateActivitySource(
-        string prefix, QueueServiceClient client, ILoggerFactory loggerFactory)
+        DurableStorageClientOptions options, ILoggerFactory loggerFactory)
     {
-        return new ActivityWorkItemSource(prefix, client, loggerFactory.CreateLogger<ActivityWorkItemSource>());
+        ActivityWorkItemFactory factory = new(options, loggerFactory);
+        return new ActivityWorkItemSource(factory, options, loggerFactory.CreateLogger<ActivityWorkItemSource>());
     }
 
     static OrchestrationWorkItemSource CreateOrchestrationSource(
-        string prefix, QueueServiceClient queue, TableServiceClient table, ILoggerFactory loggerFactory)
+        DurableStorageClientOptions options, ILoggerFactory loggerFactory)
     {
-        QueueClient orchestrations = queue.GetQueueClient(prefix + "orchestrations");
-        QueueClient activities = queue.GetQueueClient(prefix + "activities");
-        TableClient history = table.GetTableClient(prefix + "history");
-        TableClient state = table.GetTableClient(prefix + "state");
+        QueueClient orchestrations = options.GetQueue(options.HubName + "-orchestrations");
+        QueueClient activities = options.ActivityQueue;
+        TableClient history = options.TableService.GetTableClient(options.HubName + "history");
+        TableClient state = options.TableService.GetTableClient(options.HubName + "state");
         return new OrchestrationWorkItemSource(
             orchestrations, activities, history, state, loggerFactory);
     }

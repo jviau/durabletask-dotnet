@@ -59,7 +59,7 @@ partial class StorageOrchestrationChannel
                 return false;
             }
 
-            if (this.parent.session.NewMessageReader.TryRead(out WorkDispatch? dispatch))
+            if (this.parent.session.NewMessageReader.TryRead(out WorkMessage? dispatch))
             {
                 this.parent.pendingActions.Writer.TryWrite(() => this.parent.session.ConsumeMessageAsync(dispatch));
                 item = dispatch.Message;
