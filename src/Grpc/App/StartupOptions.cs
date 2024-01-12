@@ -21,4 +21,10 @@ public class StartupOptions
     /// </summary>
     [Option('n', "name", HelpText = "The TaskHub name to use.")]
     public string Name { get; set; } = "testhub";
+
+    /// <summary>
+    /// Gets or sets the backend type to use.
+    /// </summary>
+    [Option('b', "backend", HelpText = "The backend to use. 0 for in memory, 1 for Azure storage.")]
+    public int Backend { get; set; }
 }

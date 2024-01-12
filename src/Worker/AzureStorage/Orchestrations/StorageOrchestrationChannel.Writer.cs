@@ -35,20 +35,14 @@ partial class StorageOrchestrationChannel
             return this.parent.pendingActions.Writer.TryWrite(() => this.parent.session.SendNewMessageAsync(item));
         }
 
-        public override ValueTask<bool> WaitToWriteAsync(CancellationToken cancellationToken = default)
+        public override async ValueTask<bool> WaitToWriteAsync(CancellationToken cancellationToken = default)
         {
-            async Task<bool> WaitForFlushAsync(CancellationToken cancellation)
-            {
-                await this.parent.FlushAsync(cancellation);
-                return await this.WaitToWriteAsync(cancellation);
-            }
-
             if (this.parent.FlushNeeded)
             {
-                return new(WaitForFlushAsync(cancellationToken));
+                await this.parent.FlushAsync(cancellationToken);
             }
 
-            return this.parent.pendingActions.Writer.WaitToWriteAsync(cancellationToken);
+            return await this.parent.pendingActions.Writer.WaitToWriteAsync(cancellationToken);
         }
     }
 }

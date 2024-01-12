@@ -70,59 +70,34 @@ partial class StorageOrchestrationChannel
             return false;
         }
 
-        public override ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
+        public override async ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
         {
-            async Task<bool> WaitForFlushAsync(Task<bool>? read, CancellationToken cancellation)
-            {
-                if (read is not null)
-                {
-                    bool hasHistory = await read;
-                    if (hasHistory)
-                    {
-                        return true;
-                    }
-                }
-
-                await this.parent.FlushAsync(cancellation);
-                this.parent.logger.LogInformation("Waiting for new messages.");
-                return await this.parent.session.NewMessageReader.WaitToReadAsync(cancellation);
-            }
-
             if (this.Completion.IsCompleted)
             {
-                return new(false);
+                return false;
             }
 
-            if (this.WaitForHistoryRead(cancellationToken, out Task<bool>? read) && read is null)
+            if (await this.ReadHistoryAsync(cancellationToken))
             {
-                return new(true);
+                return true;
             }
 
             // We will always flush on any WaitToReadAsync call.
-            return new(WaitForFlushAsync(read, cancellationToken));
+            await this.parent.FlushAsync(cancellationToken);
+            this.parent.logger.LogInformation("Waiting for new messages.");
+            return await this.parent.session.NewMessageReader.WaitToReadAsync(cancellationToken);
         }
 
-        bool WaitForHistoryRead(CancellationToken cancellation, out Task<bool>? read)
+        ValueTask<bool> ReadHistoryAsync(CancellationToken cancellation)
         {
-            // This function looks odd because it is doing its best to avoid allocating a task object. It is also trying
-            // to answer the question of is there any more history to be read? And if not, null out the history channel
-            // so that we do not risk holding it into memory anymore. Also in the no more history case, we do not return
-            // to the caller, instead we want to begin waiting on new messages.
-            async Task<bool> ReadSlowAsync(ValueTask<bool> inner)
+            async ValueTask<bool> ReadSlowAsync(CancellationToken cancellation)
             {
                 this.parent.logger.LogInformation("Waiting for history to populate.");
-                if (await inner)
+                if (await this.history.WaitToReadAsync(cancellation))
                 {
                     return true;
                 }
 
-                this.parent.logger.LogInformation("Done reading history.");
-                this.history = null;
-                return false;
-            }
-
-            async Task<bool> CompleteAsync()
-            {
                 this.parent.logger.LogInformation("Done reading history.");
                 if (this.history is IAsyncDisposable disposable)
                 {
@@ -135,25 +110,10 @@ partial class StorageOrchestrationChannel
 
             if (this.history is null)
             {
-                read = null;
-                return false;
+                return new(false);
             }
 
-            ValueTask<bool> inner = this.history.WaitToReadAsync(cancellation);
-            if (inner.IsCompletedSuccessfully)
-            {
-                read = null;
-                if (inner.Result)
-                {
-                    return true;
-                }
-
-                read = CompleteAsync();
-                return false;
-            }
-
-            read = ReadSlowAsync(inner);
-            return true;
+            return ReadSlowAsync(cancellation);
         }
     }
 }

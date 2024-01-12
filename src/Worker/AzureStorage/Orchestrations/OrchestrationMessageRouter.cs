@@ -26,34 +26,24 @@ class OrchestrationMessageRouter
     }
 
     /// <summary>
-    /// Attemps to deliver a message to an activer orchestration.
+    /// Attempts to deliver a message to an active orchestration.
     /// </summary>
     /// <param name="id">The ID of the orchestration to deliver to.</param>
     /// <param name="message">The message to deliver.</param>
     /// <param name="cancellation">The cancellation token.</param>
     /// <returns>True if delivered, false otherwise.</returns>
-    public ValueTask<bool> DeliverAsync(
+    public async ValueTask<bool> DeliverAsync(
         string id, WorkDispatch message, CancellationToken cancellation = default)
     {
-        static async Task<bool> SlowAsync(ValueTask task)
-        {
-            await task;
-            return true;
-        }
-
         if (this.orchestrationChannels.TryGetValue(id, out Dispatcher dispatcher))
         {
             this.logger.LogInformation("Delivering new message to orchestration {InstanceId}", id);
-            ValueTask task = dispatcher.WriteAsync(message, cancellation);
-            if (task.IsCompletedSuccessfully)
-            {
-                return new(true);
-            }
-
-            return new(SlowAsync(task));
+            await dispatcher.WriteAsync(message, cancellation);
+            return true;
         }
 
-        return new(false);
+        this.logger.LogWarning("Unable to deliver message to orchestration {InstanceId}", id);
+        return false;
     }
 
     /// <summary>

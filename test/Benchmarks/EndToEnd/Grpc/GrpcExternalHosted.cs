@@ -45,7 +45,7 @@ public abstract class GrpcExternalHosted : GrpcBenchmark
         }
 
         string path = Path.Combine(child.FullName, "net6.0", "Microsoft.DurableTask.Grpc.App.exe");
-        this.process = Process.Start(path, $"-p {port} -n {this.Name}benchmark \"Logging:LogLevel:Default=Warning\"");
+        this.process = Process.Start(path, $"-t 0 -p {port} -n {this.Name}benchmark \"Logging:LogLevel:Default=Warning\"");
         return GrpcChannel.ForAddress($"http://localhost:{port}");
     }
 }
