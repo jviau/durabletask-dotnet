@@ -11,6 +11,7 @@ using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Grpc.Hub;
 using Microsoft.DurableTask.Grpc.Hub.Bulk;
 using Microsoft.DurableTask.Worker;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -87,7 +88,14 @@ public static class HostHelpers
         Action<IDurableTaskWorkerBuilder> configureWorker, Action<IDurableTaskClientBuilder> configureClient)
     {
         return Host.CreateDefaultBuilder()
-            .ConfigureLogging(b => b.ClearProviders().SetMinimumLevel(LogLevel.Critical))
+            .ConfigureAppConfiguration(c =>
+            {
+                c.AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    ["Logging:LogLevel:Default"] = "Error",
+                    //["Logging:LogLevel:Microsoft.DurableTask"] = "Information",
+                });
+            })
             .ConfigureServices(services =>
             {
                 services.AddDurableTaskWorker(b =>

@@ -4,6 +4,8 @@
 using BenchmarkDotNet.Attributes;
 using DurableTask.Core;
 using DurableTask.Core.Serializing;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
@@ -15,6 +17,9 @@ public abstract class BaselineBenchmark
 
     protected TaskHubClient Client { get; set; } = null!;
 
+    ILogger logger = NullLogger.Instance;
+    int active;
+
     public IEnumerable<object[]> ScaleValues() => ScaleArguments.Values;
 
     [GlobalSetup]
@@ -22,12 +27,14 @@ public abstract class BaselineBenchmark
     {
         async Task Run()
         {
+            ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().AddFilter(l => l > LogLevel.Warning));
+            this.logger = loggerFactory.CreateLogger<ChannelBenchmark>();
             Console.CancelKeyPress += this.CancelKeyPress;
             this.orchestrationService = this.CreateOrchestrationService();
             Console.WriteLine("Initializing orchestration service.");
             await this.orchestrationService.CreateIfNotExistsAsync();
             Console.WriteLine("Initialized orchestration service.");
-            this.worker = new(this.orchestrationService);
+            this.worker = new(this.orchestrationService, loggerFactory);
             this.worker.AddTaskOrchestrations(typeof(TestCoreOrchestration));
             this.worker.AddTaskActivities(typeof(TestCoreActivity));
 
@@ -77,27 +84,45 @@ public abstract class BaselineBenchmark
         Run().GetAwaiter().GetResult();
     }
 
-    [BenchmarkCategory("External", "Local")]
     [Benchmark(Description = "baseline", Baseline = true)]
     [ArgumentsSource(nameof(ScaleValues))]
     public async Task OrchestrationScale(int count, int depth)
     {
+        using Timer t = new(
+            _ =>
+            {
+                this.logger.LogInformation("Pending orchestrations (Outer): {Active}", this.active);
+            },
+            null,
+            0,
+            1000);
+
         async Task RunOrchestrationAsync()
         {
             await Task.Yield();
             OrchestrationInstance instance = await this.Client.CreateOrchestrationInstanceAsync(
                 typeof(TestCoreOrchestration), depth);
-            OrchestrationState state = await this.Client.WaitForOrchestrationAsync(
-                instance, TimeSpan.MaxValue, this.cts.Token);
-            if (state.OrchestrationStatus != OrchestrationStatus.Completed)
-            {
-                throw new InvalidOperationException($"Unexpected status of {state.OrchestrationStatus}.");
-            }
 
-            int result = JsonDataConverter.Default.Deserialize<int>(state.Output);
-            if (result != depth)
+
+            Interlocked.Increment(ref this.active);
+            try
             {
-                throw new InvalidOperationException($"Unexpected result of {result}. Expected {depth}.");
+                OrchestrationState state = await this.Client.WaitForOrchestrationAsync(
+                    instance, TimeSpan.MaxValue, this.cts.Token);
+                if (state.OrchestrationStatus != OrchestrationStatus.Completed)
+                {
+                    throw new InvalidOperationException($"Unexpected status of {state.OrchestrationStatus}.");
+                }
+
+                int result = JsonDataConverter.Default.Deserialize<int>(state.Output);
+                if (result != depth)
+                {
+                    throw new InvalidOperationException($"Unexpected result of {result}. Expected {depth}.");
+                }
+            }
+            finally
+            {
+                Interlocked.Decrement(ref this.active);
             }
         }
 

@@ -228,7 +228,7 @@ class AzureStorageDurableTaskClient : DurableTaskClient
                 };
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), cancellation);
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellation);
         }
     }
 

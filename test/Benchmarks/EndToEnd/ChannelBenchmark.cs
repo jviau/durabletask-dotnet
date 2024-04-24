@@ -6,11 +6,14 @@ using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
 public abstract class ChannelBenchmark
 {
+    int active;
+
     protected IHost Host { get; private set; } = null!;
 
     protected DurableTaskClient Client { get; private set; } = null!;
@@ -52,26 +55,45 @@ public abstract class ChannelBenchmark
         Run().GetAwaiter().GetResult();
     }
 
-    [BenchmarkCategory("Local")]
     [Benchmark(Description = "channel-shim")]
     [ArgumentsSource(nameof(ScaleValues))]
     public async Task OrchestrationScale(int count, int depth)
     {
+        ILogger logger = this.Host.Services.GetRequiredService<ILogger<ChannelBenchmark>>();
+        //using Timer t = new(
+        //    _ =>
+        //    {
+        //        Console.WriteLine($"Pending orchestrations (Outer): {this.active}");
+        //    },
+        //    null,
+        //    0,
+        //    1000);
+
         async Task RunOrchestrationAsync()
         {
             await Task.Yield();
             string id = await this.Client.ScheduleNewOrchestrationInstanceAsync(nameof(TestOrchestration), depth);
-            OrchestrationMetadata data = await this.Client.WaitForInstanceCompletionAsync(
-                id, getInputsAndOutputs: true, this.ShutdownToken);
-            if (data.RuntimeStatus != OrchestrationRuntimeStatus.Completed)
-            {
-                throw new InvalidOperationException($"Unexpected status of {data.RuntimeStatus}.");
-            }
 
-            int result = data.ReadOutputAs<int>();
-            if (result != depth)
+            Interlocked.Increment(ref this.active);
+
+            try
             {
-                throw new InvalidOperationException($"Unexpected result of {result}. Expected {depth}.");
+                OrchestrationMetadata data = await this.Client.WaitForInstanceCompletionAsync(
+                    id, getInputsAndOutputs: true, this.ShutdownToken);
+                if (data.RuntimeStatus != OrchestrationRuntimeStatus.Completed)
+                {
+                    throw new InvalidOperationException($"Unexpected status of {data.RuntimeStatus}.");
+                }
+
+                int result = data.ReadOutputAs<int>();
+                if (result != depth)
+                {
+                    throw new InvalidOperationException($"Unexpected result of {result}. Expected {depth}.");
+                }
+            }
+            finally
+            {
+                Interlocked.Decrement(ref this.active);
             }
         }
 

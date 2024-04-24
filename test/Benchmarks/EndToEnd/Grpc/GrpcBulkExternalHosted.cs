@@ -13,9 +13,9 @@ public class GrpcBulkExternalHosted : GrpcExternalHosted
 {
     protected override string Name => "bulk";
 
-    [BenchmarkCategory("External")]
-    [Benchmark(Description = "grpc-bulk")]
-    [ArgumentsSource(nameof(ScaleValues))]
+    //[BenchmarkCategory("External")]
+    //[Benchmark(Description = "grpc-bulk")]
+    //[ArgumentsSource(nameof(ScaleValues))]
     public Task OrchestrationScale(int count, int depth) => this.RunScaleAsync(count, depth);
 
     protected override IHost CreateWorkerHost(GrpcChannel channel)

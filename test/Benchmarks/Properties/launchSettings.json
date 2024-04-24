@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Benchmarks": {
+      "commandName": "Project",
+      "commandLineArgs": "--filter *ChannelAzureStorageBenchmark*",
+      "hotReloadEnabled": false
+    }
+  }
+}

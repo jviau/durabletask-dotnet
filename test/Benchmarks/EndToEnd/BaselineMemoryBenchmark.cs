@@ -6,6 +6,7 @@ using DurableTask.Core;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
+[BenchmarkCategory("InMemory")]
 [MemoryDiagnoser]
 [IterationCount(10)]
 public class BaselineMemoryBenchmark : BaselineBenchmark
@@ -14,7 +15,7 @@ public class BaselineMemoryBenchmark : BaselineBenchmark
     {
         return OrchestrationService.Create(new()
         {
-            Name = "benchmarkBaseline",
+            Name = "inmemory",
             Kind = OrchestrationService.Kind.InMemory,
         });
     }

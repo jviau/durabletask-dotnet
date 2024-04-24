@@ -38,9 +38,10 @@ static class OrchestrationService
     {
         ArgumentNullException.ThrowIfNull(options);
         Console.WriteLine($"Using AzureStorage: sessions={options.UseSessions}");
+        Console.WriteLine($"Development Storage: {options.ConnectionString is null}");
         AzureStorageOrchestrationServiceSettings settings = new()
         {
-            PartitionCount = 1,
+            PartitionCount = 4,
             MaxConcurrentTaskActivityWorkItems = int.MaxValue,
             MaxConcurrentTaskOrchestrationWorkItems = int.MaxValue,
             StorageConnectionString = options.ConnectionString ?? "UseDevelopmentStorage=true",

@@ -21,9 +21,9 @@ public abstract class GrpcExternalHosted : GrpcBenchmark
     }
 
     [GlobalCleanup]
-    public async Task CleanupAsync()
+    public void Cleanup()
     {
-        await this.CleanupCoreAsync();
+        this.CleanupCoreAsync().GetAwaiter().GetResult();
         this.process.Kill();
         this.process.Dispose();
     }
@@ -45,7 +45,7 @@ public abstract class GrpcExternalHosted : GrpcBenchmark
         }
 
         string path = Path.Combine(child.FullName, "net6.0", "Microsoft.DurableTask.Grpc.App.exe");
-        this.process = Process.Start(path, $"-t 0 -p {port} -n {this.Name}benchmark \"Logging:LogLevel:Default=Warning\"");
+        this.process = Process.Start(path, $"-b 0 -p {port} -n {this.Name}benchmark \"Logging:LogLevel:Default=Warning\"");
         return GrpcChannel.ForAddress($"http://localhost:{port}");
     }
 }

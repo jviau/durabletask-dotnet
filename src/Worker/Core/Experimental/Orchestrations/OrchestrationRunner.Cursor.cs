@@ -73,12 +73,13 @@ partial class OrchestrationRunner
                 {
                     while (this.Reader.TryRead(out OrchestrationMessage? message))
                     {
-                        this.logger.LogInformation("Received message of type {MessageType}", message.GetType());
+                        this.logger.LogDebug("Received message of type {MessageType}", message.GetType());
                         this.HandleMessage(message);
                     }
 
                     if (await this.CheckForCompletionAsync())
                     {
+                        this.logger.LogInformation("Orchestration {InstanceId} complete.", this.WorkItem.Id);
                         break;
                     }
                 }

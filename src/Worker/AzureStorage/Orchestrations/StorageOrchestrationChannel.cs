@@ -71,7 +71,7 @@ partial class StorageOrchestrationChannel : Channel<OrchestrationMessage>
             count++;
         }
 
-        this.logger.LogInformation("Flushed {FlushCount} items", count);
+        this.logger.LogDebug("Flushed {FlushCount} items", count);
         this.forceFlush = false;
     }
 }

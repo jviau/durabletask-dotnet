@@ -6,6 +6,7 @@ using DurableTask.Core;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
+[BenchmarkCategory("AzureStorage")]
 [MemoryDiagnoser]
 [IterationCount(10)]
 public class BaselineAzureStorageBenchmark : BaselineBenchmark
@@ -16,7 +17,7 @@ public class BaselineAzureStorageBenchmark : BaselineBenchmark
         {
             Name = "benchmarkbaseline",
             Kind = OrchestrationService.Kind.AzureStorage,
-            ConnectionString = Environment.GetEnvironmentVariable("AzureStoreConnectionString"),
+            ConnectionString = Environment.GetEnvironmentVariable("AzureStorageConnectionString"),
             UseSessions = false,
         });
     }

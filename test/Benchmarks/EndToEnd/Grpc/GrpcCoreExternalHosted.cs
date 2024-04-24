@@ -14,7 +14,7 @@ public class GrpcCoreExternalHosted : GrpcExternalHosted
     protected override string Name => "core";
 
     [BenchmarkCategory("External")]
-    [Benchmark(Description = "grpc-baseline")]
+    [Benchmark(Description = "grpc-baseline", Baseline = true)]
     [ArgumentsSource(nameof(ScaleValues))]
     public Task OrchestrationScale(int count, int depth) => this.RunScaleAsync(count, depth);
 

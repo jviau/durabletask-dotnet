@@ -8,9 +8,23 @@ using Microsoft.DurableTask.Grpc.App;
 using Microsoft.DurableTask.Grpc.Hub;
 using Microsoft.DurableTask.Grpc.Hub.Bulk;
 
-StartupOptions options = Parser.Default.ParseArguments<StartupOptions>(args).Value;
+ParserResult<StartupOptions> result = Parser.Default.ParseArguments<StartupOptions>(args);
+
+bool exit = false;
+foreach (Error error in result.Errors)
+{
+    Console.WriteLine(error);
+    exit = true;
+}
+
+if (exit)
+{
+    return;
+}
+
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+StartupOptions options = result.Value;
 if (options.Port is int port)
 {
     builder.WebHost.UseUrls($"http://localhost:{port}");

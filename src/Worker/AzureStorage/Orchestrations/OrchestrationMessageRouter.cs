@@ -37,12 +37,11 @@ class OrchestrationMessageRouter
     {
         if (this.orchestrationChannels.TryGetValue(id, out Dispatcher dispatcher))
         {
-            this.logger.LogInformation("Delivering new message to orchestration {InstanceId}", id);
+            this.logger.LogDebug("Delivering new message to orchestration {InstanceId}", id);
             await dispatcher.WriteAsync(message, cancellation);
             return true;
         }
 
-        this.logger.LogWarning("Unable to deliver message to orchestration {InstanceId}", id);
         return false;
     }
 

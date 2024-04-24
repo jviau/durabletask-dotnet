@@ -134,7 +134,7 @@ class StorageOrchestrationSession : IOrchestrationSession
         if (outbound)
         {
             // Sending a new message we first deliver to the queue, then we will persist the delivery to the store.
-            this.logger.LogInformation("Delivering message: {MessageType}", message.GetType().Name);
+            this.logger.LogDebug("Delivering message: {MessageType}", message.GetType().Name);
             await this.queue.SendMessageAsync(message, this.CancellationToken);
         }
 
@@ -144,21 +144,21 @@ class StorageOrchestrationSession : IOrchestrationSession
         }
 
         // If queue write succeeded, we will not cancel here.
-        this.logger.LogInformation("Appending message");
+        this.logger.LogDebug("Appending message");
         await this.store.AppendMessageAsync(message, outbound ? CancellationToken.None : this.CancellationToken);
     }
 
     /// <inheritdoc/>
     public Task UpdateStateAsync(string? status)
     {
-        this.logger.LogInformation("Updating orchestration status.");
+        this.logger.LogInformation("Updating orchestration {InstanceId} state.", this.envelope.Id);
         return this.UpdateStateCoreAsync(status);
     }
 
     /// <inheritdoc/>
     public ValueTask ReleaseAsync()
     {
-        this.logger.LogInformation("Releasing orchestration.");
+        this.logger.LogInformation("Releasing orchestration {InstanceId}.", this.envelope.Id);
         return this.queue.ReleaseAsync(this.CancellationToken);
     }
 
@@ -182,7 +182,6 @@ class StorageOrchestrationSession : IOrchestrationSession
 
     async Task CompleteOrchestrationAsync(ExecutionCompleted completed)
     {
-        this.logger.LogInformation("Orchestration completed.");
         this.completion.TrySetResult(null);
         this.completed = completed;
 

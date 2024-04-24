@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.DurableTask.Benchmarks.EndToEnd;
 
+[BenchmarkCategory("AzureStorage")]
 [MemoryDiagnoser]
 [IterationCount(10)]
 public class ChannelAzureStorageBenchmark : ChannelBenchmark

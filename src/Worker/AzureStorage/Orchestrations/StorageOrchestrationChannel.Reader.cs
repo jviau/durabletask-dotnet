@@ -84,7 +84,7 @@ partial class StorageOrchestrationChannel
 
             // We will always flush on any WaitToReadAsync call.
             await this.parent.FlushAsync(cancellationToken);
-            this.parent.logger.LogInformation("Waiting for new messages.");
+            this.parent.logger.LogDebug("Waiting for new messages.");
             return await this.parent.session.NewMessageReader.WaitToReadAsync(cancellationToken);
         }
 
@@ -92,13 +92,13 @@ partial class StorageOrchestrationChannel
         {
             async ValueTask<bool> ReadSlowAsync(CancellationToken cancellation)
             {
-                this.parent.logger.LogInformation("Waiting for history to populate.");
+                this.parent.logger.LogDebug("Waiting for history to populate.");
                 if (await this.history.WaitToReadAsync(cancellation))
                 {
                     return true;
                 }
 
-                this.parent.logger.LogInformation("Done reading history.");
+                this.parent.logger.LogDebug("Done reading history.");
                 if (this.history is IAsyncDisposable disposable)
                 {
                     await disposable.DisposeAsync();

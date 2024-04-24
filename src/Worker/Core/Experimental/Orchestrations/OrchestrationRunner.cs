@@ -12,9 +12,11 @@ namespace Microsoft.DurableTask.Worker;
 /// </summary>
 partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, OrchestrationRunnerOptions>
 {
+    readonly Timer timer;
     readonly IServiceProvider services;
     readonly ILoggerFactory loggerFactory;
     readonly ILogger logger;
+    int active;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OrchestrationRunner"/> class.
@@ -29,6 +31,14 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
         this.services = Check.NotNull(services);
         this.loggerFactory = Check.NotNull(loggerFactory);
         this.logger = loggerFactory.CreateLogger<OrchestrationRunner>();
+        this.timer = new Timer(
+            _ =>
+            {
+                this.logger.LogInformation("Processing orchestrations: {Active}", this.active);
+            },
+            null,
+            0,
+            1000);
     }
 
     /// <inheritdoc/>
@@ -61,6 +71,7 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
             throw;
         }
 
+        Interlocked.Increment(ref this.active);
         try
         {
             await workItem.InitializeAsync(cancellation);
@@ -73,6 +84,7 @@ partial class OrchestrationRunner : WorkItemRunner<OrchestrationWorkItem, Orches
         }
         finally
         {
+            Interlocked.Decrement(ref this.active);
             await workItem.ReleaseAsync(cancellation);
         }
     }
