@@ -60,7 +60,7 @@ public sealed partial class OrchestrationStatusHttpResult(string instanceId)
 
         DurableAspNetCoreOptions options = httpContext.RequestServices
             .GetRequiredService<IOptions<DurableAspNetCoreOptions>>().Value;
-        if (options.OperationLocationBehavior is { } behavior)
+        if (options.OperationLocation is { } behavior)
         {
             behavior.SetHeader(httpContext, this.InstanceId, logger);
         }

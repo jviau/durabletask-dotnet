@@ -49,7 +49,7 @@ public partial class OrchestrationStatusResultExecutor : IActionResultExecutor<O
             return;
         }
 
-        this.options.OperationLocationBehavior?.SetHeader(
+        this.options.OperationLocation?.SetHeader(
             context.HttpContext, result.InstanceId, this.logger);
         ObjectResult objectResult = new(metadata)
         {
