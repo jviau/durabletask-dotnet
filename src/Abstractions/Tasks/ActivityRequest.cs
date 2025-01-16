@@ -81,35 +81,21 @@ public static class ActivityRequest
         return request;
     }
 
-    class Request<TResult> : RequestCore, IActivityRequest<TResult>
+    class Request<TResult>(TaskName name, object? input)
+        : RequestCore(name, input), IActivityRequest<TResult>
     {
-        public Request(TaskName name, object? input)
-            : base(name, input)
-        {
-        }
     }
 
-    class Request : RequestCore, IActivityRequest
+    class Request(TaskName name, object? input)
+        : RequestCore(name, input), IActivityRequest
     {
-        public Request(TaskName name, object? input)
-            : base(name, input)
-        {
-        }
     }
 
-    class RequestCore : IBaseActivityRequest, IProvidesInput
+    class RequestCore(TaskName name, object? input)
+        : IBaseActivityRequest, IProvidesInput
     {
-        readonly TaskName name;
-        readonly object? input;
+        public object? GetInput() => input;
 
-        public RequestCore(TaskName name, object? input)
-        {
-            this.name = name;
-            this.input = input;
-        }
-
-        public object? GetInput() => this.input;
-
-        public TaskName GetTaskName() => this.name;
+        public TaskName GetTaskName() => name;
     }
 }

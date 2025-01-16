@@ -1,65 +1,60 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Azure.Identity;
+using Microsoft.Azure.Cosmos;
 using Microsoft.DurableTask;
 using Microsoft.DurableTask.Client;
-using Microsoft.DurableTask.Converters;
 using Microsoft.DurableTask.Worker;
+using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Preview;
 using Preview.MediatorPattern;
+using Preview.MediatorPattern.ExistingTypes;
 
-IHost host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices(services =>
+HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+builder.Services.AddDurableTaskClient(b =>
+{
+    b.UseGrpc();
+    b.RegisterDirectly();
+});
+
+builder.Services.AddDurableTaskWorker(b =>
+{
+    b.AddTasks(tasks =>
     {
-        services.AddDurableTaskClient(builder =>
-        {
-            // Configure options for this builder. Can be omitted if no options customization is needed.
-            builder.Configure(opt => { });
-            builder.UseGrpc(); // multiple overloads available for providing gRPC information
+        Mediator1Command.Register(tasks);
+        Mediator2Command.Register(tasks);
+    });
 
-            // AddDurableTaskClient allows for multiple named clients by passing in a name as the first argument.
-            // When using a non-default named client, you will need to make this call below to have the
-            // DurableTaskClient added directly to the DI container. Otherwise IDurableTaskClientProvider must be used
-            // to retrieve DurableTaskClients by name from the DI container. In this case, we are using the default
-            // name, so the line below is NOT required as it was already called for us.
-            builder.RegisterDirectly();
-        });
+    b.UseGrpc();
+});
 
-        services.AddDurableTaskWorker(builder =>
-        {
-            // Configure options for this builder. Can be omitted if no options customization is needed.
-            builder.Configure(opt => { });
-
-            // Register orchestrators and activities.
-            builder.AddTasks(tasks =>
-            {
-                Mediator1Command.Register(tasks);
-                Mediator2Command.Register(tasks);
-            });
-
-            builder.UseGrpc(); // multiple overloads available for providing gRPC information
-        });
-
-        // Can also configure worker and client options through all the existing options config methods.
-        // These are equivalent to the 'builder.Configure' calls above.
-        services.Configure<DurableTaskWorkerOptions>(opt => { });
-        services.Configure<DurableTaskClientOptions>(opt => { });
-
-        // Registry can also be done via options pattern. This is equivalent to the 'builder.AddTasks' call above.
-        // You can use all the tools options pattern has available. For example, if you have multiple workers you could
-        // use ConfigureAll<DurableTaskRegistry> to add tasks to ALL workers in one go. Otherwise, you need to use
-        // named option configuration to register to specific workers (where the name matches the name passed to 
-        // 'AddDurableTaskWorker(name?, builder)').
-        services.Configure<DurableTaskRegistry>(registry => { });
-
-        // You can configure custom data converter multiple ways. One is through worker/client options configuration.
-        // Alternatively, data converter will be used from the service provider if available (as a singleton) AND no
-        // converter was explicitly set on the options.
-        services.AddSingleton<DataConverter>(JsonDataConverter.Default);
+// Sets up CosmosDB services using IAzureClientFactory.
+builder.Services.AddAzureClients(b =>
+{
+    b.AddClient<CosmosClient, CosmosClientOptions>((options, credential, _) =>
+    {
+        return new CosmosClient(builder.Configuration["CosmosDb:AccountEndpoint"], credential, options);
     })
-    .UseCommandLineApplication<Sample>(args)
-    .Build();
+    .ConfigureOptions(builder.Configuration.GetSection("CosmosDb"));
 
+    b.AddClient<Container, CosmosClientOptions>(
+        (_, _, provider) =>
+        {
+            CosmosClient client = provider.GetRequiredService<CosmosClient>();
+            Database db = client.GetDatabase(CosmosConstants.Database);
+            return db.GetContainer(CosmosConstants.Container);
+        })
+        .WithName(CosmosConstants.Container);
+
+    b.UseCredential(new DefaultAzureCredential());
+});
+
+new HostBuilderShim(builder).UseCommandLineApplication<Sample>(args);
+
+IHost host = builder.Build();
 await host.RunCommandLineApplicationAsync();

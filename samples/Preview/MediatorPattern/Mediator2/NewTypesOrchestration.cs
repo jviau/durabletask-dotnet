@@ -52,18 +52,11 @@ public record WriteConsoleActivityRequest(string Value) : IActivityRequest<strin
     public TaskName GetTaskName() => nameof(WriteConsoleActivity2);
 }
 
-public class WriteConsoleActivity2 : TaskActivity<WriteConsoleActivityRequest> // Single generic means it has no output. Only input.
+public class WriteConsoleActivity2(IConsole console) : TaskActivity<WriteConsoleActivityRequest> // Single generic means it has no output. Only input.
 {
-    readonly IConsole console;
-
-    public WriteConsoleActivity2(IConsole console) // Dependency injection example.
-    {
-        this.console = console;
-    }
-
     public override Task RunAsync(TaskActivityContext context, WriteConsoleActivityRequest input)
     {
-        this.console.WriteLine(input.Value);
+        console.WriteLine(input.Value);
         return Task.CompletedTask;
     }
 }
@@ -73,18 +66,11 @@ public record ExpandActivityRequest(string Value) : IActivityRequest<string>
     public TaskName GetTaskName() => nameof(ExpandActivity2);
 }
 
-public class ExpandActivity2 : TaskActivity<ExpandActivityRequest, string>
+public class ExpandActivity2(ILogger<ExpandActivity2> logger) : TaskActivity<ExpandActivityRequest, string>
 {
-    readonly ILogger logger;
-
-    public ExpandActivity2(ILogger<ExpandActivity2> logger) // Activities get logger from DI.
-    {
-        this.logger = logger;
-    }
-
     public override Task<string> RunAsync(TaskActivityContext context, ExpandActivityRequest input)
     {
-        this.logger.LogDebug("In ExpandActivity");
+        logger.LogDebug("In ExpandActivity");
         return Task.FromResult($"Input received: {input.Value}");
     }
 }

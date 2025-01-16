@@ -46,40 +46,26 @@ public class MediatorSubOrchestrator1 : TaskOrchestrator<string, string>
     }
 }
 
-public class WriteConsoleActivity1 : TaskActivity<string> // Single generic means it has no output. Only input.
+public class WriteConsoleActivity1(IConsole console) : TaskActivity<string> // Single generic means it has no output. Only input.
 {
-    readonly IConsole console;
-
-    public WriteConsoleActivity1(IConsole console) // Dependency injection example.
-    {
-        this.console = console;
-    }
-
     public static IActivityRequest CreateRequest(string input)
         => ActivityRequest.Create(nameof(WriteConsoleActivity1), input);
 
     public override Task RunAsync(TaskActivityContext context, string input)
     {
-        this.console.WriteLine(input);
+        console.WriteLine(input);
         return Task.CompletedTask;
     }
 }
 
-public class ExpandActivity1 : TaskActivity<string, string>
+public class ExpandActivity1(ILogger<ExpandActivity1> logger) : TaskActivity<string, string>
 {
-    readonly ILogger logger;
-
-    public ExpandActivity1(ILogger<ExpandActivity1> logger) // Activities get logger from DI.
-    {
-        this.logger = logger;
-    }
-
     public static IActivityRequest<string> CreateRequest(string input)
         => ActivityRequest.Create<string>(nameof(ExpandActivity1), input);
 
     public override Task<string> RunAsync(TaskActivityContext context, string input)
     {
-        this.logger.LogDebug("In ExpandActivity");
+        logger.LogDebug("In ExpandActivity");
         return Task.FromResult($"Input received: {input}");
     }
 }
