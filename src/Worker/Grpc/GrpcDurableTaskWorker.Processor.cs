@@ -3,12 +3,16 @@
 
 using System.Text;
 using DurableTask.Core;
+using DurableTask.Core.Entities;
+using DurableTask.Core.Entities.OperationFormat;
 using DurableTask.Core.History;
 using Grpc.Core;
+using Microsoft.DurableTask.Entities;
 using Microsoft.DurableTask.Worker.Shims;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using static Microsoft.DurableTask.Protobuf.TaskHubSidecarService;
+using DTCore = DurableTask.Core;
 using P = Microsoft.DurableTask.Protobuf;
 
 namespace Microsoft.DurableTask.Worker.Grpc;
@@ -35,7 +39,7 @@ sealed partial class GrpcDurableTaskWorker
 
         ILogger Logger => this.worker.logger;
 
-        public async Task ExecuteAsync(string target, CancellationToken cancellation)
+        public async Task ExecuteAsync(CancellationToken cancellation)
         {
             while (!cancellation.IsCancellationRequested)
             {
@@ -52,12 +56,12 @@ sealed partial class GrpcDurableTaskWorker
                 catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
                 {
                     // Sidecar is shutting down - retry
-                    this.Logger.SidecarDisconnected(target);
+                    this.Logger.SidecarDisconnected();
                 }
                 catch (RpcException ex) when (ex.StatusCode == StatusCode.Unavailable)
                 {
                     // Sidecar is down - keep retrying
-                    this.Logger.SidecarUnavailable(target);
+                    this.Logger.SidecarUnavailable();
                 }
                 catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
                 {
@@ -147,6 +151,10 @@ sealed partial class GrpcDurableTaskWorker
                     else if (workItem.RequestCase == P.WorkItem.RequestOneofCase.ActivityRequest)
                     {
                         this.RunBackgroundTask(workItem, () => this.OnRunActivityAsync(workItem.ActivityRequest));
+                    }
+                    else if (workItem.RequestCase == P.WorkItem.RequestOneofCase.EntityRequest)
+                    {
+                        this.RunBackgroundTask(workItem, () => this.OnRunEntityBatchAsync(workItem.EntityRequest));
                     }
                     else
                     {
@@ -249,16 +257,16 @@ sealed partial class GrpcDurableTaskWorker
                 {
                     InstanceId = request.InstanceId,
                     Actions =
-                {
-                    new P.OrchestratorAction
                     {
-                        CompleteOrchestration = new P.CompleteOrchestrationAction
+                        new P.OrchestratorAction
                         {
-                            OrchestrationStatus = P.OrchestrationStatus.Failed,
-                            FailureDetails = failureDetails,
+                            CompleteOrchestration = new P.CompleteOrchestrationAction
+                            {
+                                OrchestrationStatus = P.OrchestrationStatus.Failed,
+                                FailureDetails = failureDetails,
+                            },
                         },
                     },
-                },
                 };
             }
 
@@ -305,12 +313,7 @@ sealed partial class GrpcDurableTaskWorker
             }
             catch (Exception applicationException)
             {
-                failureDetails = new P.TaskFailureDetails
-                {
-                    ErrorType = applicationException.GetType().FullName,
-                    ErrorMessage = applicationException.Message,
-                    StackTrace = applicationException.StackTrace,
-                };
+                failureDetails = applicationException.ToTaskFailureDetails();
             }
 
             int outputSizeInBytes = 0;
@@ -336,6 +339,69 @@ sealed partial class GrpcDurableTaskWorker
             };
 
             await this.sidecar.CompleteActivityTaskAsync(response);
+        }
+
+        async Task OnRunEntityBatchAsync(P.EntityBatchRequest request)
+        {
+            var coreEntityId = DTCore.Entities.EntityId.FromString(request.InstanceId);
+            EntityId entityId = new(coreEntityId.Name, coreEntityId.Key);
+
+            TaskName name = new(entityId.Name);
+
+            EntityBatchRequest batchRequest = request.ToEntityBatchRequest();
+            EntityBatchResult? batchResult;
+
+            try
+            {
+                await using AsyncServiceScope scope = this.worker.services.CreateAsyncScope();
+                IDurableTaskFactory2 factory = (IDurableTaskFactory2)this.worker.Factory;
+
+                if (factory.TryCreateEntity(name, scope.ServiceProvider, out ITaskEntity? entity))
+                {
+                    // Both the factory invocation and the RunAsync could involve user code and need to be handled as
+                    // part of try/catch.
+                    TaskEntity shim = this.shimFactory.CreateEntity(name, entity, entityId);
+                    batchResult = await shim.ExecuteOperationBatchAsync(batchRequest);
+                }
+                else
+                {
+                    // we could not find the entity. This is considered an application error,
+                    // so we return a non-retryable error-OperationResult for each operation in the batch.
+                    batchResult = new EntityBatchResult()
+                    {
+                        Actions = new List<OperationAction>(), // no actions
+                        EntityState = batchRequest.EntityState, // state is unmodified
+                        Results = Enumerable.Repeat(
+                            new OperationResult()
+                            {
+                                FailureDetails = new FailureDetails(
+                                    errorType: "EntityTaskNotFound",
+                                    errorMessage: $"No entity task named '{name}' was found.",
+                                    stackTrace: null,
+                                    innerFailure: null,
+                                    isNonRetriable: true),
+                            },
+                            batchRequest.Operations!.Count).ToList(),
+                        FailureDetails = null,
+                    };
+                }
+            }
+            catch (Exception frameworkException)
+            {
+                // return a result with no results, same state,
+                // and which contains failure details
+                batchResult = new EntityBatchResult()
+                {
+                    Actions = new List<OperationAction>(),
+                    EntityState = batchRequest.EntityState,
+                    Results = new List<OperationResult>(),
+                    FailureDetails = new FailureDetails(frameworkException),
+                };
+            }
+
+            // convert the result to protobuf format and send it back
+            P.EntityBatchResult response = batchResult.ToEntityBatchResult();
+            await this.sidecar.CompleteEntityTaskAsync(response);
         }
     }
 }

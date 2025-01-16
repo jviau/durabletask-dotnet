@@ -3,6 +3,7 @@
 
 using DurableTask.Core;
 using Microsoft.Extensions.Logging;
+using CoreTaskFailedException = DurableTask.Core.Exceptions.TaskFailedException;
 
 namespace Microsoft.DurableTask.Worker.Shims;
 
@@ -46,10 +47,28 @@ partial class TaskOrchestrationShim : TaskOrchestration
 
         object? input = this.DataConverter.Deserialize(rawInput, this.implementation.InputType);
         this.wrapperContext = new(innerContext, this.invocationContext, input);
-        object? output = await this.implementation.RunAsync(this.wrapperContext, input);
 
-        // Return the output (if any) as a serialized string.
-        return this.DataConverter.Serialize(output);
+        try
+        {
+            object? output = await this.implementation.RunAsync(this.wrapperContext, input);
+
+            // Return the output (if any) as a serialized string.
+            return this.DataConverter.Serialize(output);
+        }
+        catch (TaskFailedException e)
+        {
+            // Convert back to something the Durable Task Framework natively understands so that
+            // failure details are correctly propagated.
+            throw new CoreTaskFailedException(e.Message, e.InnerException)
+            {
+                FailureDetails = new FailureDetails(e, e.FailureDetails.ToCoreFailureDetails()),
+            };
+        }
+        finally
+        {
+            // if user code crashed inside a critical section, or did not exit it, do that now
+            this.wrapperContext.ExitCriticalSectionIfNeeded();
+        }
     }
 
     /// <inheritdoc/>

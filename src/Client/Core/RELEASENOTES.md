@@ -1,4 +1,1 @@
-- Fix incorrect bounds check on `PurgeResult`
-- Address typo for `DurableTaskClient.GetInstancesAsync` (incorrectly pluralized)
-    - Added `GetInstanceAsync`
-    - Hide `GetInstancesAsync` from editor
+- Fix filter not being passed along in `PurgeAllInstancesAsync` (https://github.com/microsoft/durabletask-dotnet/pull/289)

@@ -5,6 +5,9 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using DurableTask.Core;
+using DurableTask.Core.Entities.OperationFormat;
+using DurableTask.Core.Serializing.Internal;
+using Microsoft.DurableTask.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.DurableTask.Worker.Shims;
@@ -14,7 +17,7 @@ namespace Microsoft.DurableTask.Worker.Shims;
 /// </summary>
 sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
 {
-    readonly Dictionary<string, IEventSource> externalEventSources = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, Queue<IEventSource>> externalEventSources = new(StringComparer.OrdinalIgnoreCase);
     readonly NamedQueue<string> externalEventBuffer = new();
     readonly OrchestrationContext innerContext;
     readonly OrchestrationInvocationContext invocationContext;
@@ -23,6 +26,7 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
 
     int newGuidCounter;
     object? customStatus;
+    TaskOrchestrationEntityContext? entityFeature;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TaskOrchestrationContextWrapper"/> class.
@@ -48,7 +52,7 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
     public override string InstanceId => this.innerContext.OrchestrationInstance.InstanceId;
 
     /// <inheritdoc/>
-    public override ParentOrchestrationInstance? Parent { get; }
+    public override ParentOrchestrationInstance? Parent => this.invocationContext.Parent;
 
     /// <inheritdoc/>
     public override bool IsReplaying => this.innerContext.IsReplaying;
@@ -57,9 +61,33 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
     public override DateTime CurrentUtcDateTime => this.innerContext.CurrentUtcDateTime;
 
     /// <inheritdoc/>
-    protected override ILoggerFactory LoggerFactory => this.invocationContext.LoggerFactory;
+    public override TaskOrchestrationEntityFeature Entities
+    {
+        get
+        {
+            if (this.entityFeature == null)
+            {
+                if (this.invocationContext.Options.EnableEntitySupport)
+                {
+                    this.entityFeature = new TaskOrchestrationEntityContext(this);
+                }
+                else
+                {
+                    throw new NotSupportedException($"Durable entities are disabled because {nameof(DurableTaskWorkerOptions)}.{nameof(DurableTaskWorkerOptions.EnableEntitySupport)}=false");
+                }
+            }
 
-    DataConverter DataConverter => this.invocationContext.Options.DataConverter;
+            return this.entityFeature;
+        }
+    }
+
+    /// <summary>
+    /// Gets the DataConverter to use for inputs, outputs, and entity states.
+    /// </summary>
+    internal DataConverter DataConverter => this.invocationContext.Options.DataConverter;
+
+    /// <inheritdoc/>
+    protected override ILoggerFactory LoggerFactory => this.invocationContext.LoggerFactory;
 
     /// <inheritdoc/>
     public override T GetInput<T>() => (T)this.deserializedInput!;
@@ -124,6 +152,14 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
             => options is SubOrchestrationOptions derived ? derived.InstanceId : null;
         string instanceId = GetInstanceId(options) ?? this.NewGuid().ToString("N");
 
+        Check.NotEntity(this.invocationContext.Options.EnableEntitySupport, instanceId);
+
+        // if this orchestration uses entities, first validate that the suborchsestration call is allowed in the current context
+        if (this.entityFeature != null && !this.entityFeature.EntityContext.ValidateSuborchestrationTransition(out string? errorMsg))
+        {
+            throw new InvalidOperationException(errorMsg);
+        }
+
         try
         {
             if (options?.Retry?.Policy is RetryPolicy policy)
@@ -131,6 +167,7 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
                 return await this.innerContext.CreateSubOrchestrationInstanceWithRetry<TResult>(
                     orchestratorName.Name,
                     orchestratorName.Version,
+                    instanceId,
                     policy.ToDurableTaskCoreRetryOptions(),
                     input);
             }
@@ -158,7 +195,10 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
         catch (global::DurableTask.Core.Exceptions.SubOrchestrationFailedException e)
         {
             // Hide the core DTFx types and instead use our own
-            throw new TaskFailedException(orchestratorName, e.ScheduleId, e);
+            throw new TaskFailedException(
+                orchestratorName,
+                e.ScheduleId,
+                TaskFailureDetails.FromCoreFailureDetails(e.FailureDetails!));
         }
     }
 
@@ -194,19 +234,21 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
 
         // Create a task completion source that will be set when the external event arrives.
         EventTaskCompletionSource<T> eventSource = new();
-        if (this.externalEventSources.TryGetValue(eventName, out IEventSource? existing))
+        if (this.externalEventSources.TryGetValue(eventName, out Queue<IEventSource>? existing))
         {
-            if (existing.EventType != typeof(T))
+            if (existing.Count > 0 && existing.Peek().EventType != typeof(T))
             {
                 throw new ArgumentException("Events with the same name must have the same type argument. Expected"
-                    + $" {existing.EventType.FullName}.");
+                    + $" {existing.Peek().GetType().FullName} but was requested {typeof(T).FullName}.");
             }
 
-            existing.Next = eventSource;
+            existing.Enqueue(eventSource);
         }
         else
         {
-            this.externalEventSources.Add(eventName, eventSource);
+            Queue<IEventSource> eventSourceQueue = new();
+            eventSourceQueue.Enqueue(eventSource);
+            this.externalEventSources.Add(eventName, eventSourceQueue);
         }
 
         // TODO: this needs to be tracked and disposed appropriately.
@@ -217,6 +259,8 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
     /// <inheritdoc/>
     public override void SendEvent(string instanceId, string eventName, object eventData)
     {
+        Check.NotEntity(this.invocationContext.Options.EnableEntitySupport, instanceId);
+
         this.innerContext.SendEvent(new OrchestrationInstance { InstanceId = instanceId }, eventName, eventData);
     }
 
@@ -237,7 +281,9 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
             OrchestrationInstance instance = new() { InstanceId = this.InstanceId };
             foreach ((string eventName, string eventPayload) in this.externalEventBuffer.TakeAll())
             {
-                this.innerContext.SendEvent(instance, eventName, eventPayload);
+#pragma warning disable CS0618 // Type or member is obsolete -- 'internal' usage.
+                this.innerContext.SendEvent(instance, eventName, new RawInput(eventPayload));
+#pragma warning restore CS0618 // Type or member is obsolete
             }
         }
     }
@@ -300,24 +346,40 @@ sealed partial class TaskOrchestrationContextWrapper : TaskOrchestrationContext
     }
 
     /// <summary>
+    /// exits the critical section, if currently within a critical section. Otherwise, this has no effect.
+    /// </summary>
+    internal void ExitCriticalSectionIfNeeded()
+    {
+        this.entityFeature?.ExitCriticalSection();
+    }
+
+    /// <summary>
     /// Completes the external event by name, allowing the orchestration to continue if it is waiting on this event.
     /// </summary>
     /// <param name="eventName">The name of the event to complete.</param>
     /// <param name="rawEventPayload">The serialized event payload.</param>
     internal void CompleteExternalEvent(string eventName, string rawEventPayload)
     {
-        if (this.externalEventSources.TryGetValue(eventName, out IEventSource? waiter))
+        if (this.externalEventSources.TryGetValue(eventName, out Queue<IEventSource>? waiters))
         {
-            object? value = this.DataConverter.Deserialize(rawEventPayload, waiter.EventType);
+            object? value;
 
-            // Events are completed in FIFO order. Remove the key if the last event was delivered.
-            if (waiter.Next == null)
+            IEventSource waiter = waiters.Dequeue();
+            if (waiter.EventType == typeof(OperationResult))
             {
-                this.externalEventSources.Remove(eventName);
+                // use the framework-defined deserialization for entity responses, not the application-defined data converter,
+                // because we are just unwrapping the entity response without yet deserializing any application-defined data.
+                value = this.entityFeature!.EntityContext.DeserializeEntityResponseEvent(rawEventPayload);
             }
             else
             {
-                this.externalEventSources[eventName] = waiter.Next;
+                value = this.DataConverter.Deserialize(rawEventPayload, waiter.EventType);
+            }
+
+            // Events are completed in FIFO order. Remove the key if the last event was delivered.
+            if (waiters.Count == 0)
+            {
+                this.externalEventSources.Remove(eventName);
             }
 
             waiter.TrySetResult(value);

@@ -1,5 +1,97 @@
 ﻿# Changelog
 
+## v1.3.0 (Unreleased)
+
+### Microsoft.DurableTask.Abstractions
+
+- Add `RetryPolicy.Handle` property to allow for exception filtering on retries ([#314](https://github.com/microsoft/durabletask-dotnet/pull/314))
+
+## v1.2.4
+
+- Microsoft.Azure.DurableTask.Core dependency increased to `2.17.1`
+
+## v1.2.3
+
+### Microsoft.DurableTask.Client
+
+- Fix filter not being passed along in `PurgeAllInstancesAsync` (https://github.com/microsoft/durabletask-dotnet/pull/289)
+
+### Microsoft.DurableTask.Abstractions
+
+- Enable inner exception detail propagation in `TaskFailureDetails` ([#290](https://github.com/microsoft/durabletask-dotnet/pull/290))
+- Microsoft.Azure.DurableTask.Core dependency increased to `2.17.0`
+
+## v1.2.2
+
+### Microsoft.DurableTask.Abstractions
+
+- Fix `TaskFailureDetails.IsCausedBy` to support custom exceptions and 3rd party exceptions ([#273](https://github.com/microsoft/durabletask-dotnet/pull/273))
+- Microsoft.Azure.DurableTask.Core dependency increased to `2.16.2`
+
+### Microsoft.DurableTask.Client
+
+- Fix typo in `PurgeInstanceAsync`  in `DurableTaskClient` (https://github.com/microsoft/durabletask-dotnet/pull/264)
+
+## v1.2.0
+
+- Adds support to recursively terminate/purge sub-orchestrations in `GrpcDurableTaskClient` (https://github.com/microsoft/durabletask-dotnet/pull/262)
+
+## v1.1.1
+
+- Microsoft.Azure.DurableTask.Core dependency increased to `2.16.1`
+
+## v1.1.0
+
+- Microsoft.Azure.DurableTask.Core dependency increased to `2.16.0`
+
+## v1.1.0-preview.2
+
+- Microsoft.Azure.DurableTask.Core dependency increased to `2.16.0-preview.2`
+
+## v1.1.0-preview.1
+
+Adds support for durable entities. Learn more [here](https://learn.microsoft.com/azure/azure-functions/durable/durable-functions-entities?tabs=csharp).
+
+### Microsoft.DurableTask.Abstractions
+
+- Microsoft.Azure.DurableTask.Core dependency increased to `2.16.0-preview.1`
+
+## v1.0.5
+
+### Microsoft.DurableTask.Abstractions
+
+- Microsoft.Azure.DurableTask.Core dependency increased to `2.15.0` (https://github.com/microsoft/durabletask-dotnet/pull/212)
+
+### Microsoft.DurableTask.Worker
+
+- Fix re-encoding of events when using `TaskOrchestrationContext.ContinueAsNew(preserveUnprocessedEvents: true)` (https://github.com/microsoft/durabletask-dotnet/pull/212)
+
+## v1.0.4
+
+### Microsoft.DurableTask.Worker
+
+- Fix handling of concurrent external events with the same name (https://github.com/microsoft/durabletask-dotnet/pull/194)
+
+## v1.0.3
+
+### Microsoft.DurableTask.Worker
+
+- Fix instance ID not being passed in when using retry policy (https://github.com/microsoft/durabletask-dotnet/issues/174)
+
+### Microsoft.DurableTask.Worker.Grpc
+
+- Add `GrpcDurableTaskWorkerOptions.CallInvoker` as an alternative to `GrpcDurableTaskWorkerOptions.Channel`
+
+### Microsoft.DurableTask.Client.Grpc
+
+- Add `GrpcDurableTaskClientOptions.CallInvoker` as an alternative to `GrpcDurableTaskClientOptions.Channel`
+
+## v1.0.2
+
+### Microsoft.DurableTask.Worker
+
+- Fix issue with `TaskOrchestrationContext.Parent` not being set.
+
 ## v1.0.1
 
 ### Microsoft.DurableTask.Client

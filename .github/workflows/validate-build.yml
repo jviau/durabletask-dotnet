@@ -2,10 +2,14 @@ name: Validate Build
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - 'feature/**'
     paths-ignore: [ '**.md' ]
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+      - 'feature/**'
     paths-ignore: [ '**.md' ]
 
 env:
@@ -26,14 +30,11 @@ jobs:
       with:
         global-json-file: global.json
 
-    - name: Enable App Service MyGet feed
-      run: dotnet nuget add source https://www.myget.org/F/azure-appservice/api/v3/index.json --name appservice-myget 
-
     - name: Restore dependencies
       run: dotnet restore $solution
 
     - name: Build
-      run: dotnet build $solution --configuration $config --no-restore -p:FileVersionRevision=$GITHUB_RUN_NUMBER
+      run: dotnet build $solution --configuration $config --no-restore -p:FileVersionRevision=$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=true
 
     - name: Test
       run: dotnet test $solution --configuration $config --no-build --verbosity normal

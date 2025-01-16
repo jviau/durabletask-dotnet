@@ -3,7 +3,7 @@
 
 using System.Text;
 using Google.Protobuf.WellKnownTypes;
-using Grpc.Core;
+using Microsoft.DurableTask.Client.Entities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -20,6 +20,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     readonly ILogger logger;
     readonly TaskHubSidecarServiceClient sidecarClient;
     readonly GrpcDurableTaskClientOptions options;
+    readonly DurableEntityClient? entityClient;
     AsyncDisposable asyncDisposable;
 
     /// <summary>
@@ -46,9 +47,18 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     {
         this.logger = Check.NotNull(logger);
         this.options = Check.NotNull(options);
-        this.asyncDisposable = BuildChannel(options, out GrpcChannel channel);
-        this.sidecarClient = new TaskHubSidecarServiceClient(channel);
+        this.asyncDisposable = GetCallInvoker(options, out CallInvoker callInvoker);
+        this.sidecarClient = new TaskHubSidecarServiceClient(callInvoker);
+
+        if (this.options.EnableEntitySupport)
+        {
+            this.entityClient = new GrpcDurableEntityClient(this.Name, this.DataConverter, this.sidecarClient, logger);
+        }
     }
+
+    /// <inheritdoc/>
+    public override DurableEntityClient Entities => this.entityClient
+        ?? throw new NotSupportedException($"Durable entities are disabled because {nameof(DurableTaskClientOptions)}.{nameof(DurableTaskClientOptions.EnableEntitySupport)}=false");
 
     DataConverter DataConverter => this.options.DataConverter;
 
@@ -65,6 +75,8 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         StartOrchestrationOptions? options = null,
         CancellationToken cancellation = default)
     {
+        Check.NotEntity(this.options.EnableEntitySupport, options?.InstanceId);
+
         var request = new P.CreateInstanceRequest
         {
             Name = orchestratorName.Name,
@@ -98,6 +110,8 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         Check.NotNullOrEmpty(instanceId);
         Check.NotNullOrEmpty(eventName);
 
+        Check.NotEntity(this.options.EnableEntitySupport, instanceId);
+
         P.RaiseEventRequest request = new()
         {
             InstanceId = instanceId,
@@ -110,9 +124,14 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
 
     /// <inheritdoc/>
     public override async Task TerminateInstanceAsync(
-        string instanceId, object? output = null, CancellationToken cancellation = default)
+        string instanceId, TerminateInstanceOptions? options = null, CancellationToken cancellation = default)
     {
+        object? output = options?.Output;
+        bool recursive = options?.Recursive ?? false;
+
         Check.NotNullOrEmpty(instanceId);
+        Check.NotEntity(this.options.EnableEntitySupport, instanceId);
+
         this.logger.TerminatingInstance(instanceId);
 
         string? serializedOutput = this.DataConverter.Serialize(output);
@@ -121,6 +140,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
             {
                 InstanceId = instanceId,
                 Output = serializedOutput,
+                Recursive = recursive,
             },
             cancellationToken: cancellation);
     }
@@ -129,6 +149,8 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     public override async Task SuspendInstanceAsync(
         string instanceId, string? reason = null, CancellationToken cancellation = default)
     {
+        Check.NotEntity(this.options.EnableEntitySupport, instanceId);
+
         P.SuspendRequest request = new()
         {
             InstanceId = instanceId,
@@ -150,6 +172,8 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     public override async Task ResumeInstanceAsync(
         string instanceId, string? reason = null, CancellationToken cancellation = default)
     {
+        Check.NotEntity(this.options.EnableEntitySupport, instanceId);
+
         P.ResumeRequest request = new()
         {
             InstanceId = instanceId,
@@ -171,6 +195,8 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     public override async Task<OrchestrationMetadata?> GetInstancesAsync(
         string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
     {
+        Check.NotEntity(this.options.EnableEntitySupport, instanceId);
+
         if (string.IsNullOrEmpty(instanceId))
         {
             throw new ArgumentNullException(nameof(instanceId));
@@ -196,6 +222,8 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     /// <inheritdoc/>
     public override AsyncPageable<OrchestrationMetadata> GetAllInstancesAsync(OrchestrationQuery? filter = null)
     {
+        Check.NotEntity(this.options.EnableEntitySupport, filter?.InstanceIdPrefix);
+
         return Pageable.Create(async (continuation, pageSize, cancellation) =>
         {
             P.QueryInstancesRequest request = new()
@@ -245,6 +273,8 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     public override async Task<OrchestrationMetadata> WaitForInstanceStartAsync(
         string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
     {
+        Check.NotEntity(this.options.EnableEntitySupport, instanceId);
+
         this.logger.WaitingForInstanceStart(instanceId, getInputsAndOutputs);
 
         P.GetInstanceRequest request = new()
@@ -270,6 +300,8 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
     public override async Task<OrchestrationMetadata> WaitForInstanceCompletionAsync(
         string instanceId, bool getInputsAndOutputs = false, CancellationToken cancellation = default)
     {
+        Check.NotEntity(this.options.EnableEntitySupport, instanceId);
+
         this.logger.WaitingForInstanceCompletion(instanceId, getInputsAndOutputs);
 
         P.GetInstanceRequest request = new()
@@ -293,18 +325,20 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
 
     /// <inheritdoc/>
     public override Task<PurgeResult> PurgeInstanceAsync(
-        string instanceId, CancellationToken cancellation = default)
+        string instanceId, PurgeInstanceOptions? options = null, CancellationToken cancellation = default)
     {
+        bool recursive = options?.Recursive ?? false;
         this.logger.PurgingInstanceMetadata(instanceId);
 
-        P.PurgeInstancesRequest request = new() { InstanceId = instanceId };
+        P.PurgeInstancesRequest request = new() { InstanceId = instanceId, Recursive = recursive };
         return this.PurgeInstancesCoreAsync(request, cancellation);
     }
 
     /// <inheritdoc/>
     public override Task<PurgeResult> PurgeAllInstancesAsync(
-        PurgeInstancesFilter filter, CancellationToken cancellation = default)
+        PurgeInstancesFilter filter, PurgeInstanceOptions? options = null, CancellationToken cancellation = default)
     {
+        bool recursive = options?.Recursive ?? false;
         this.logger.PurgingInstances(filter);
         P.PurgeInstancesRequest request = new()
         {
@@ -313,6 +347,7 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
                 CreatedTimeFrom = filter?.CreatedFrom.ToTimestamp(),
                 CreatedTimeTo = filter?.CreatedTo.ToTimestamp(),
             },
+            Recursive = recursive,
         };
 
         if (filter?.Statuses is not null)
@@ -323,17 +358,23 @@ public sealed class GrpcDurableTaskClient : DurableTaskClient
         return this.PurgeInstancesCoreAsync(request, cancellation);
     }
 
-    static AsyncDisposable BuildChannel(GrpcDurableTaskClientOptions options, out GrpcChannel channel)
+    static AsyncDisposable GetCallInvoker(GrpcDurableTaskClientOptions options, out CallInvoker callInvoker)
     {
         if (options.Channel is GrpcChannel c)
         {
-            channel = c;
+            callInvoker = c.CreateCallInvoker();
+            return default;
+        }
+
+        if (options.CallInvoker is CallInvoker invoker)
+        {
+            callInvoker = invoker;
             return default;
         }
 
         c = GetChannel(options.Address);
-        channel = c;
-        return new AsyncDisposable(async () => await c.ShutdownAsync());
+        callInvoker = c.CreateCallInvoker();
+        return new AsyncDisposable(() => new(c.ShutdownAsync()));
     }
 
 #if NET6_0_OR_GREATER
