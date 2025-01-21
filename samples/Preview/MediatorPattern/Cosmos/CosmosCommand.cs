@@ -4,9 +4,8 @@
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.DurableTask;
 using Microsoft.DurableTask.Extensions.CosmosDb;
-using Preview.MediatorPattern.ExistingTypes;
 
-namespace Preview.MediatorPattern;
+namespace Preview.MediatorPattern.Cosmos;
 
 [Command(Description = "Runs the cosmos mediator sample")]
 public class Cosmos1Command : SampleCommandBase

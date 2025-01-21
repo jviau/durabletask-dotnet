@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="$(SrcRoot)Client/Grpc/Client.Grpc.csproj" />
     <ProjectReference Include="$(SrcRoot)Worker/Grpc/Worker.Grpc.csproj" />
+    <ProjectReference Include="$(SrcRoot)Extensions/Azure.ResourceManager/Extensions.Azure.ResourceManager.csproj" />
     <ProjectReference Include="$(SrcRoot)Extensions/CosmosDb/Extensions.CosmosDb.csproj" />
   </ItemGroup>
 

@@ -20,6 +20,7 @@ public static class DurableTaskRegistryExtensions
     public static DurableTaskRegistry AddQueryContainerActivity<TOutput>(this DurableTaskRegistry registry)
         where TOutput : notnull
     {
+        Check.NotNull(registry);
         QueryContainerActivity<TOutput>.Register(registry);
         return registry;
     }

@@ -7,12 +7,12 @@ using Microsoft.DurableTask;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.Azure;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Preview;
 using Preview.MediatorPattern;
-using Preview.MediatorPattern.ExistingTypes;
+using Preview.MediatorPattern.Cosmos;
+using Preview.MediatorPattern.CreateVm;
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder();
 
@@ -26,6 +26,8 @@ builder.Services.AddDurableTaskWorker(b =>
 {
     b.AddTasks(tasks =>
     {
+        Cosmos1Command.Register(tasks);
+        Cosmos2Command.Register(tasks);
         Mediator1Command.Register(tasks);
         Mediator2Command.Register(tasks);
     });
@@ -50,6 +52,10 @@ builder.Services.AddAzureClients(b =>
             return db.GetContainer(CosmosConstants.Container);
         })
         .WithName(CosmosConstants.Container);
+
+    b.AddArmClient(ArmConstants.Subscription)
+        .ConfigureOptions(builder.Configuration.GetSection("AzureResourceManager"))
+        .WithName(ArmConstants.ClientName);
 
     b.UseCredential(new DefaultAzureCredential());
 });

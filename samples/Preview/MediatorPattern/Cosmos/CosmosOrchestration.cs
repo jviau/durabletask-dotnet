@@ -7,7 +7,7 @@ using Microsoft.DurableTask;
 using Microsoft.DurableTask.Extensions.CosmosDb;
 using Microsoft.Extensions.Logging;
 
-namespace Preview.MediatorPattern.ExistingTypes;
+namespace Preview.MediatorPattern.Cosmos;
 
 /**
 * This sample shows how mediator-pattern orchestrations and activities can be leveraged for advanced scenarios
@@ -25,11 +25,15 @@ public static class CosmosConstants
     public const string Container = "my_container";
 }
 
+/// <summary>
+/// This orchestrator shows invoking a CosmosDB query and getting an <see cref="IAsyncEnumerable{T}"/> back. As the
+/// enumerable is iterated over, activites will be dispatched as needed to fetch each page.
+/// </summary>
 public class CosmosOrchestrator : TaskOrchestrator
 {
     static readonly QueryDefinition query = new("SELECT * FROM c WHERE STARTSWITCH(c.Name, 'example')");
 
-    public static IOrchestrationRequest CreateRequest() => OrchestrationRequest.Create(nameof(MediatorOrchestrator1));
+    public static IOrchestrationRequest CreateRequest() => OrchestrationRequest.Create(nameof(CosmosOrchestrator));
 
     public override async Task RunAsync(TaskOrchestrationContext context)
     {
@@ -44,6 +48,11 @@ public class CosmosOrchestrator : TaskOrchestrator
 
 }
 
+/// <summary>
+/// This orchestrator shows invoking a CosmosDB query, where each page is handled individually. After each page, the orchestrator
+/// will be continued-as-new to process the next page. An implementation-defined value is passed along to the next invocation,
+/// allowing for aggregating some result across all pages. This approach optimizes away replays of the same page.
+/// </summary>
 public class CosmosAggregationOrchestrator : PagedTaskOrchestration<CosmosAggregationOrchestrator.Request, Document, string>
 {
     static readonly QueryDefinition query = new("SELECT * FROM c WHERE STARTSWITCH(c.Name, 'example')");
